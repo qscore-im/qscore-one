@@ -1,0 +1,23 @@
+{
+  "name": "volleyball-scoreboard",
+  "version": "1.0.0",
+  "description": "Real-time volleyball scoreboard — Socket.io locally, Firebase in production",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "deploy": "firebase deploy",
+    "test":   "playwright test"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "firebase-tools": "^13.10.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
