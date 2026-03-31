@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qscore Quick</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0c0c10;
+      --surface:  #16161c;
+      --surface2: #222230;
+      --border:   #2e2e3e;
+      --a:        #ff4f1f;
+      --b:        #00c2d1;
+      --text:     #efefef;
+      --muted:    #8888a8;
+      --green:    #2ecc71;
+    }
+
+    html, body {
+      height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Sans', sans-serif;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { display: flex; flex-direction: column; }
+
+    /* ── Header ── */
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .header-logo { height: 28px; cursor: pointer; }
+    .conn-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #444; transition: background 0.4s;
+    }
+    .conn-dot.live { background: var(--green); }
+
+    /* ── Session info strip ── */
+    .session-strip {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 8px 14px; display: flex; flex-direction: column; gap: 5px;
+      flex-shrink: 0;
+    }
+    .session-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .session-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--muted); flex-shrink: 0; width: 36px;
+    }
+    .session-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px; font-weight: 700; color: var(--text);
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .session-value.code { font-size: 18px; letter-spacing: 0.18em; }
+    .btn-copy {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+      padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 600;
+      font-family: inherit; cursor: pointer; flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-copy:hover  { color: var(--text); border-color: var(--muted); }
+    .btn-copy.copied { color: var(--green); border-color: var(--green); }
+
+    /* ── Court ── */
+    .court { flex: 1; display: flex; overflow: hidden; }
+    .court.swapped { flex-direction: row-reverse; }
+    .team-panel {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 14px 10px 10px; gap: 10px; position: relative; transition: background 0.3s;
+    }
+    .team-panel::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; opacity: 0; transition: opacity 0.3s;
+    }
+    .team-panel.a               { border-right: 1px solid var(--border); }
+    .court.swapped .team-panel.a { border-right: none; border-left: 1px solid var(--border); }
+    .team-panel.a::after { background: var(--a); }
+    .team-panel.b::after { background: var(--b); }
+    .team-panel.serving::after { opacity: 1; }
+    .team-panel.serving { background: rgba(255,255,255,0.015); }
+
+    .name-row { display: flex; align-items: center; gap: 7px; }
+    .serve-pip { width: 7px; height: 7px; border-radius: 50%; opacity: 0; transition: opacity 0.3s; flex-shrink: 0; }
+    .serving .serve-pip { opacity: 1; }
+    .team-panel.a .serve-pip { background: var(--a); }
+    .team-panel.b .serve-pip { background: var(--b); }
+    .team-name-lbl {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      cursor: pointer; border-bottom: 1px dashed transparent; transition: border-color 0.2s;
+      background: none; border-top: none; border-left: none; border-right: none;
+      padding: 0; font-family: inherit;
+    }
+    .team-panel.a .team-name-lbl { color: var(--a); }
+    .team-panel.b .team-name-lbl { color: var(--b); }
+    .team-name-lbl:hover { border-bottom-color: currentColor; }
+
+    .name-input {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      font-family: 'IBM Plex Sans', sans-serif; background: transparent;
+      border: none; border-bottom: 2px solid currentColor; outline: none;
+      width: 90px; text-align: center; padding: 0 2px;
+    }
+    .team-panel.a .name-input { color: var(--a); }
+    .team-panel.b .name-input { color: var(--b); }
+
+    .score-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: clamp(72px, 18vw, 96px); font-weight: 700; line-height: 1; color: var(--text);
+    }
+    .score-num.bump { animation: bump 0.22s ease; }
+    @keyframes bump { 0%{transform:scale(1)} 45%{transform:scale(1.14)} 100%{transform:scale(1)} }
+
+    .btn-plus {
+      width: 100%; flex: 1; border: none; border-radius: 14px; font-size: 40px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s, opacity 0.1s; user-select: none;
+    }
+    .team-panel.a .btn-plus { background: var(--a); color: #fff; }
+    .team-panel.b .btn-plus { background: var(--b); color: #fff; }
+    .btn-plus:active { transform: scale(0.95); opacity: 0.8; }
+
+    .btn-minus {
+      width: 100%; padding: 11px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface); color: var(--muted); font-size: 20px; cursor: pointer;
+      font-family: inherit; transition: background 0.15s, color 0.15s; user-select: none;
+    }
+    .btn-minus:active { background: var(--surface2); color: var(--text); }
+
+    .sets-row { display: flex; gap: 5px; }
+    .set-pip-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); transition: background 0.3s; }
+    .team-panel.a .set-pip-dot.won { background: var(--a); }
+    .team-panel.b .set-pip-dot.won { background: var(--b); }
+    .set-hist { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; min-height: 14px; }
+
+    /* ── Footer ── */
+    .scorer-footer {
+      display: flex; gap: 8px; padding: 10px 12px;
+      background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    .footer-btn {
+      flex: 1; padding: 13px; border-radius: 10px; font-size: 12px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; font-family: inherit;
+      cursor: pointer; border: 1px solid var(--border); transition: opacity 0.15s;
+    }
+    .footer-btn:active { opacity: 0.7; }
+    .btn-next-set  { background: var(--surface2); color: var(--text); }
+    .btn-swap      { background: transparent; color: var(--muted); flex: 0.6; }
+    .btn-end-match { background: transparent; color: var(--muted); }
+
+    /* ── Overlay ── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(8,8,14,0.92);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; z-index: 150; opacity: 0; pointer-events: none;
+      transition: opacity 0.4s; backdrop-filter: blur(4px);
+    }
+    .overlay.show { opacity: 1; pointer-events: all; }
+    .ov-label  { font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .ov-winner { font-size: 32px; font-weight: 700; letter-spacing: 0.05em; text-align: center; }
+    .ov-score  { font-family: 'IBM Plex Mono', monospace; font-size: 18px; color: var(--muted); }
+    .ov-btn {
+      margin-top: 16px; padding: 14px 36px; border-radius: 12px;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      font-size: 13px; font-weight: 700; font-family: inherit;
+      letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; z-index: 200;
+    }
+    .toast.show { opacity: 1; }
+
+    /* ── Waiting screen ── */
+    .waiting {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; z-index: 300; transition: opacity 0.4s;
+    }
+    .waiting.hidden { opacity: 0; pointer-events: none; }
+    .waiting-text {
+      font-size: 14px; font-weight: 600; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--muted);
+    }
+
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+    .copyright {
+      position: fixed; bottom: 6px; left: 10px;
+      font-size: 9px; color: var(--muted); opacity: 0.5; pointer-events: none; z-index: 300;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <a href="/scorekeeper.html" aria-label="Back to full scorekeeper">
+      <img src="Qscore logo plain.svg" alt="Qscore" class="header-logo">
+    </a>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="conn-dot" id="conn-dot" role="img" aria-label="Disconnected"></div>
+    </div>
+  </header>
+
+  <div class="session-strip" id="session-strip">
+    <div class="session-row">
+      <span class="session-label">Code</span>
+      <span class="session-value code" id="display-code">—</span>
+      <button class="btn-copy" id="btn-copy-code" onclick="copyCode()" aria-label="Copy match code">Copy</button>
+    </div>
+    <div class="session-row">
+      <span class="session-label">Link</span>
+      <span class="session-value" id="display-url">—</span>
+      <button class="btn-copy" id="btn-copy-url" onclick="copyUrl()" aria-label="Copy display link">Copy</button>
+    </div>
+  </div>
+
+  <div class="court" id="court">
+    <div class="team-panel a" id="panel-a">
+      <div class="name-row">
+        <div class="serve-pip" aria-hidden="true"></div>
+        <button class="team-name-lbl" id="name-a" onclick="editName('A')" aria-label="Team A — tap to edit name">TEAM A</button>
+      </div>
+      <div class="score-num" id="score-a" aria-label="Team A score: 0">0</div>
+      <button class="btn-plus" onclick="addPoint('A')" aria-label="Add point for Team A">+</button>
+      <button class="btn-minus" onclick="removePoint('A')" aria-label="Remove point from Team A">−</button>
+      <div class="sets-row" id="sets-a"></div>
+      <div class="set-hist" id="hist-a"></div>
+    </div>
+    <div class="team-panel b" id="panel-b">
+      <div class="name-row">
+        <div class="serve-pip" aria-hidden="true"></div>
+        <button class="team-name-lbl" id="name-b" onclick="editName('B')" aria-label="Team B — tap to edit name">TEAM B</button>
+      </div>
+      <div class="score-num" id="score-b" aria-label="Team B score: 0">0</div>
+      <button class="btn-plus" onclick="addPoint('B')" aria-label="Add point for Team B">+</button>
+      <button class="btn-minus" onclick="removePoint('B')" aria-label="Remove point from Team B">−</button>
+      <div class="sets-row" id="sets-b"></div>
+      <div class="set-hist" id="hist-b"></div>
+    </div>
+  </div>
+
+  <footer class="scorer-footer">
+    <button class="footer-btn btn-next-set"  onclick="nextSet()">Next Set</button>
+    <button class="footer-btn btn-swap"       onclick="swapTeams()" aria-label="Swap team sides">⇄ Swap</button>
+    <button class="footer-btn btn-end-match"  onclick="endMatch()">End Match</button>
+  </footer>
+
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true">
+    <div class="ov-label"  id="ov-label">Set Won!</div>
+    <div class="ov-winner" id="ov-winner">Team A</div>
+    <div class="ov-score"  id="ov-score">25 – 20</div>
+    <button class="ov-btn" id="ov-btn">Next Set →</button>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <div class="waiting" id="waiting">
+    <img src="Qscore logo plain.svg" alt="" aria-hidden="true" style="height:48px;opacity:0.4;">
+    <div class="waiting-text">Connecting…</div>
+  </div>
+
+  <div class="copyright">©2026 W. Brian Quinn, all rights reserved</div>
+
+  <script src="js/app-config.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/backend.js"></script>
+  <script>
+  const SETS_TO_WIN = 3;
+
+  /* ── Session ID ─────────────────────────────────────────────── */
+  function genId() {
+    // lowercase letters only — easy on an on-screen keyboard
+    const chars = 'abcdefghjkmnpqrstuvwxyz'; // drop i, l, o (look like 1, 1, 0)
+    let id = '';
+    for (let i = 0; i < 5; i++) id += chars[Math.floor(Math.random() * chars.length)];
+    return id;
+  }
+
+  const SESSION_KEY = 'quickMatchId';
+  let matchId = sessionStorage.getItem(SESSION_KEY);
+  if (!matchId) {
+    matchId = genId();
+    sessionStorage.setItem(SESSION_KEY, matchId);
+  }
+
+  const displayUrl = `${location.origin}/quickdisplay.html?id=${matchId}`;
+  document.getElementById('display-code').textContent = matchId;
+  document.getElementById('display-url').textContent  = displayUrl;
+
+  /* ── State ──────────────────────────────────────────────────── */
+  let matchState  = null;
+  let overlayOpen = false;
+  let toastTimer  = null;
+  let prevA = -1, prevB = -1;
+
+  /* ── Copy helpers ───────────────────────────────────────────── */
+  function copyText(text, btnId) {
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById(btnId);
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+    }).catch(() => showToast('Copy failed — select manually'));
+  }
+
+  function copyCode() { copyText(matchId, 'btn-copy-code'); }
+  function copyUrl()  { copyText(displayUrl, 'btn-copy-url'); }
+
+  /* ── Backend ─────────────────────────────────────────────────── */
+  window.addEventListener('backend:ready', () => {
+    backend.onConnect(() => {
+      const dot = document.getElementById('conn-dot');
+      dot.classList.add('live');
+      dot.setAttribute('aria-label', 'Connected');
+    });
+    backend.onDisconnect(() => {
+      const dot = document.getElementById('conn-dot');
+      dot.classList.remove('live');
+      dot.setAttribute('aria-label', 'Disconnected');
+    });
+
+    backend.onMatches(data => {
+      const all = data || {};
+      if (all[matchId]) {
+        matchState = all[matchId];
+        renderScorer(matchState);
+        document.getElementById('waiting').classList.add('hidden');
+      }
+    });
+
+    // Create match if it doesn't exist yet (will be a no-op if backend already has it)
+    backend.onConnect(() => ensureMatch());
+  });
+
+  function freshState() {
+    return {
+      id:           matchId,
+      started:      true,
+      matchOver:    false,
+      currentSet:   1,
+      setHistory:   [],
+      serving:      'A',
+      sidesSwapped: false,
+      teamA: { name: 'TEAM A', score: 0, sets: 0 },
+      teamB: { name: 'TEAM B', score: 0, sets: 0 },
+    };
+  }
+
+  let ensured = false;
+  function ensureMatch() {
+    if (ensured) return;
+    ensured = true;
+    // Slight delay so onMatches fires first — if the match already exists we skip creation
+    setTimeout(() => {
+      if (!matchState) {
+        backend.createMatch(freshState());
+      }
+    }, 300);
+  }
+
+  /* ── Rendering ───────────────────────────────────────────────── */
+  function renderScorer(s) {
+    if (!s) return;
+
+    const nameA = document.getElementById('name-a');
+    const nameB = document.getElementById('name-b');
+    if (nameA && nameA.tagName !== 'INPUT') {
+      nameA.textContent = s.teamA?.name || 'TEAM A';
+      nameA.setAttribute('aria-label', `${s.teamA?.name || 'Team A'} — tap to edit name`);
+    }
+    if (nameB && nameB.tagName !== 'INPUT') {
+      nameB.textContent = s.teamB?.name || 'TEAM B';
+      nameB.setAttribute('aria-label', `${s.teamB?.name || 'Team B'} — tap to edit name`);
+    }
+
+    updateScore('a', s.teamA?.score ?? 0);
+    updateScore('b', s.teamB?.score ?? 0);
+
+    const servingA = s.serving === 'A';
+    document.getElementById('panel-a').className = 'team-panel a' + (servingA ? ' serving' : '');
+    document.getElementById('panel-b').className = 'team-panel b' + (!servingA ? ' serving' : '');
+    document.getElementById('court').classList.toggle('swapped', !!s.sidesSwapped);
+
+    renderPips('sets-a', s.teamA?.sets ?? 0);
+    renderPips('sets-b', s.teamB?.sets ?? 0);
+
+    const hist = s.setHistory || [];
+    document.getElementById('hist-a').textContent = hist.map(h => h.a).join('  ') || '';
+    document.getElementById('hist-b').textContent = hist.map(h => h.b).join('  ') || '';
+
+    if (s.matchOver && !overlayOpen) {
+      const winner = (s.teamA?.sets ?? 0) >= SETS_TO_WIN ? s.teamA.name : s.teamB.name;
+      showOverlay('🏆 Match Won!', winner, '', true);
+    }
+  }
+
+  function updateScore(team, val) {
+    const el   = document.getElementById('score-' + team);
+    const prev = team === 'a' ? prevA : prevB;
+    if (val !== prev) {
+      el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+      if (team === 'a') prevA = val; else prevB = val;
+    }
+    el.textContent = val;
+    el.setAttribute('aria-label', `Team ${team.toUpperCase()} score: ${val}`);
+  }
+
+  function renderPips(id, filled) {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    for (let i = 0; i < SETS_TO_WIN; i++) {
+      const pip = document.createElement('div');
+      pip.className = 'set-pip-dot' + (i < filled ? ' won' : '');
+      el.appendChild(pip);
+    }
+  }
+
+  /* ── Scoring actions ─────────────────────────────────────────── */
+  function addPoint(team) {
+    if (!matchState || matchState.matchOver || overlayOpen) return;
+    const key      = 'team' + team;
+    const otherKey = 'team' + (team === 'A' ? 'B' : 'A');
+    const newScore = (matchState[key]?.score || 0) + 1;
+    const otherSc  = matchState[otherKey]?.score || 0;
+    const target   = (matchState.currentSet ?? 1) >= 5 ? 15 : 25;
+    const patch    = { [`${key}/score`]: newScore, serving: team };
+
+    if (newScore >= target && (newScore - otherSc) >= 2) {
+      const newSets  = (matchState[key]?.sets || 0) + 1;
+      const matchWon = newSets >= SETS_TO_WIN;
+      const newHist  = [...(matchState.setHistory || []), {
+        a: team === 'A' ? newScore : otherSc,
+        b: team === 'B' ? newScore : otherSc,
+      }];
+      patch[`${key}/sets`] = newSets;
+      patch['matchOver']   = matchWon;
+      patch['setHistory']  = newHist;
+      const score = team === 'A' ? `${newScore} – ${otherSc}` : `${otherSc} – ${newScore}`;
+      setTimeout(() => showOverlay(
+        matchWon ? '🏆 Match Won!' : `Set ${matchState.currentSet} Won!`,
+        matchState[key].name, score, matchWon
+      ), 250);
+    }
+    backend.updateMatch(matchId, patch);
+  }
+
+  function removePoint(team) {
+    if (!matchState) return;
+    const key = 'team' + team;
+    backend.updateMatch(matchId, { [`${key}/score`]: Math.max(0, (matchState[key]?.score || 0) - 1) });
+  }
+
+  function editName(team) {
+    const nameEl = document.getElementById('name-' + team.toLowerCase());
+    if (nameEl.tagName === 'INPUT') return;
+    const current = matchState?.['team' + team]?.name || 'TEAM ' + team;
+
+    const input = document.createElement('input');
+    input.type      = 'text';
+    input.className = 'name-input';
+    input.value     = current;
+    input.maxLength = 20;
+    nameEl.replaceWith(input);
+    input.select();
+
+    function commit() {
+      const val = input.value.trim().toUpperCase() || current;
+      if (val !== current) backend.updateMatch(matchId, { [`team${team}/name`]: val });
+      const btn = document.createElement('button');
+      btn.className = 'team-name-lbl';
+      btn.id        = 'name-' + team.toLowerCase();
+      btn.textContent = val;
+      btn.onclick   = () => editName(team);
+      input.replaceWith(btn);
+    }
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { input.value = current; input.blur(); }
+    });
+  }
+
+  function swapTeams() {
+    if (!matchState) return;
+    backend.updateMatch(matchId, { sidesSwapped: !matchState.sidesSwapped });
+    showToast('Teams swapped');
+  }
+
+  function nextSet() {
+    if (!matchState) return;
+    backend.updateMatch(matchId, {
+      'teamA/score': 0, 'teamB/score': 0,
+      currentSet: (matchState.currentSet || 1) + 1,
+      matchOver: false,
+    });
+    dismissOverlay();
+    prevA = 0; prevB = 0;
+  }
+
+  function endMatch() {
+    if (!matchState) return;
+    if (!confirm('End this match?')) return;
+    backend.updateMatch(matchId, { matchOver: true });
+    sessionStorage.removeItem(SESSION_KEY);
+    showOverlay('Match Over', '', '', true);
+  }
+
+  /* ── Overlay ─────────────────────────────────────────────────── */
+  function showOverlay(label, winner, score, isMatch) {
+    overlayOpen = true;
+    document.getElementById('ov-label').textContent  = label;
+    document.getElementById('ov-winner').textContent = winner;
+    document.getElementById('ov-score').textContent  = score;
+    const btn = document.getElementById('ov-btn');
+    if (isMatch) {
+      btn.textContent = 'Done';
+      btn.onclick     = () => { location.href = '/scorekeeper.html'; };
+    } else {
+      btn.textContent = 'Next Set →';
+      btn.onclick     = nextSet;
+    }
+    document.getElementById('overlay').classList.add('show');
+    btn.focus();
+  }
+
+  function dismissOverlay() {
+    overlayOpen = false;
+    document.getElementById('overlay').classList.remove('show');
+  }
+
+  /* ── Toast ───────────────────────────────────────────────────── */
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+  </script>
+</body>
+</html>

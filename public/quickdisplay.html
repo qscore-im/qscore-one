@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qscore Live</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --a:    #e84400;
+      --b:    #0097a7;
+      --bg:   #ffffff;
+      --text: #111111;
+      --dim:  #767676;
+      --rule: #e0e0e0;
+      --surface: #f5f5f7;
+    }
+
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); }
+    body { display: flex; flex-direction: column; }
+
+    /* ── Top bar ── */
+    .top-bar {
+      display: flex; align-items: center; justify-content: flex-start;
+      position: relative;
+      padding: clamp(4px,0.6vh,10px) clamp(20px,3vw,48px);
+      border-bottom: 1px solid var(--rule);
+      flex-shrink: 0;
+    }
+    .top-logo {
+      height: clamp(28px, 3.5vw, 52px); display: block; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .top-logo:hover { opacity: 0.75; }
+    .top-bar-center {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: clamp(14px, 2vw, 28px); font-weight: 700;
+      letter-spacing: 0.35em; text-transform: uppercase; color: var(--dim);
+      white-space: nowrap;
+    }
+    .btn-flip {
+      position: absolute; right: clamp(20px, 3vw, 48px);
+      background: none; border: 1px solid var(--rule); color: var(--dim);
+      padding: clamp(3px,0.4vh,6px) clamp(10px,1.2vw,20px);
+      border-radius: 6px; cursor: pointer;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: clamp(11px,1.2vw,17px); font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .btn-flip:hover  { color: var(--text); border-color: #aaa; }
+    .btn-flip.active { color: var(--text); border-color: var(--dim); }
+
+    /* ── Entry screen (no ID in URL) ── */
+    .entry-screen {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 24px; padding: 32px;
+    }
+    .entry-screen h1 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: clamp(20px, 3vw, 36px); font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim);
+    }
+    .entry-row { display: flex; gap: 10px; align-items: center; }
+    .code-input {
+      background: var(--surface); border: 2px solid var(--rule); color: var(--text);
+      padding: 12px 16px; border-radius: 10px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: clamp(20px, 3vw, 32px); font-weight: 700;
+      letter-spacing: 0.3em; text-transform: lowercase;
+      outline: none; width: clamp(160px, 24vw, 280px); text-align: center;
+    }
+    .code-input:focus { border-color: #aaa; }
+    .btn-watch {
+      background: var(--text); color: var(--bg); border: none;
+      padding: 12px 24px; border-radius: 10px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: clamp(14px, 1.8vw, 22px); font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+    }
+    .entry-error {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 16px; color: #cc3300; letter-spacing: 0.1em; min-height: 22px;
+    }
+
+    /* ── Scoreboard ── */
+    .scoreboard {
+      flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0;
+    }
+    .team {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: clamp(6px,1vw,16px); gap: clamp(4px,0.5vw,10px);
+    }
+    .team.a { color: var(--a); border-right: 1px solid var(--rule); }
+    .team.b { color: var(--b); }
+
+    .scoreboard.swapped .team.a { order: 2; border-right: none; }
+    .scoreboard.swapped .team.b { order: 1; border-right: 1px solid var(--rule); }
+
+    .q-wrapper {
+      position: relative;
+      width: min(46vw, 78vh);
+      aspect-ratio: 522/480;
+      container-type: size;
+    }
+    .q-bg { position: absolute; inset: 0; width: 100%; height: 100%; transition: filter 0.4s; }
+    .team.a.serving .q-bg path, .team.a.serving .q-bg rect { filter: drop-shadow(0 0 clamp(4px,0.9vw,14px) var(--a)); }
+    .team.b.serving .q-bg path, .team.b.serving .q-bg rect { filter: drop-shadow(0 0 clamp(4px,0.9vw,14px) var(--b)); }
+
+    .q-name {
+      position: absolute; top: 12%; left: 46%; transform: translate(-50%,-50%);
+      font-family: 'Barlow Condensed', sans-serif; font-size: clamp(12px,8cqmin,56px);
+      font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+      line-height: 1; color: currentColor; white-space: nowrap;
+      max-width: 60cqw; overflow: hidden; text-overflow: ellipsis; z-index: 1;
+    }
+    .q-score {
+      position: absolute; left: 17.62%; width: 57.85%; top: 47.4%;
+      transform: translateY(-50%); text-align: center;
+      font-family: 'Bebas Neue', sans-serif; font-size: clamp(48px,45cqmin,340px);
+      line-height: 1; color: var(--text); z-index: 1;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .q-score.bump { animation: scoreBump 0.28s ease; }
+      @keyframes scoreBump { 0%{transform:translateY(-50%) scale(1)} 40%{transform:translateY(-50%) scale(1.07)} 100%{transform:translateY(-50%) scale(1)} }
+    }
+    .below-row { display: flex; flex-direction: column; align-items: center; gap: clamp(4px,0.5vw,10px); }
+    .sets-row { display: flex; gap: clamp(4px,0.8vw,12px); align-items: center; }
+    .set-pip { display: block; width: clamp(18px,2.8vw,44px); height: clamp(18px,2.8vw,44px); opacity: 0.25; transition: opacity 0.4s, transform 0.4s; }
+    .set-pip.won { opacity: 1; transform: scale(1.08); }
+    .serve-badge {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: clamp(11px,1.3vw,18px); font-weight: 700; letter-spacing: 0.25em;
+      text-transform: uppercase; color: currentColor; opacity: 0; transition: opacity 0.4s;
+    }
+    .serving .serve-badge { opacity: 1; }
+    .set-history {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: clamp(12px,1.5vw,20px); font-weight: 300; color: var(--dim);
+      letter-spacing: 0.12em; line-height: 1.4;
+    }
+
+    /* ── Celebration ── */
+    .celebration {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: clamp(8px,1.5vw,20px); background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(8px); z-index: 200; opacity: 0; pointer-events: none;
+    }
+    @media (prefers-reduced-motion: no-preference) { .celebration { transition: opacity 0.55s; } }
+    .celebration.show { opacity: 1; }
+    .cel-label  { font-family: 'Barlow Condensed', sans-serif; font-size: clamp(16px,2.5vw,36px); font-weight: 700; letter-spacing: 0.35em; text-transform: uppercase; color: var(--dim); }
+    .cel-winner { font-family: 'Bebas Neue', sans-serif; font-size: clamp(64px,14vw,180px); line-height: 0.85; text-align: center; }
+    .cel-score  { font-family: 'Barlow Condensed', sans-serif; font-size: clamp(20px,3vw,48px); font-weight: 300; color: var(--dim); letter-spacing: 0.1em; }
+
+    /* ── Waiting screen ── */
+    .no-signal {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; background: var(--bg); z-index: 300; transition: opacity 0.5s;
+    }
+    .no-signal.hidden { opacity: 0; pointer-events: none; }
+    .no-signal-icon { height: 130px; width: auto; display: block; }
+    .no-signal-text {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 18px; font-weight: 600; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--dim);
+    }
+
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    .copyright {
+      position: fixed; bottom: 6px; left: 10px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px; color: var(--dim); opacity: 0.5; pointer-events: none; z-index: 400;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ ENTRY SCREEN (shown when no ?id= in URL) ═══════════════════════════ -->
+  <div id="view-entry" style="display:none; flex:1; flex-direction:column;">
+
+    <header class="top-bar">
+      <a href="/display.html">
+        <img src="Qscore logo plain.svg" alt="Qscore" class="top-logo" title="All matches">
+      </a>
+      <div class="top-bar-center">Enter Code</div>
+    </header>
+
+    <div class="entry-screen">
+      <h1>Watch a match</h1>
+      <div class="entry-row">
+        <input class="code-input" id="code-input" type="text"
+               placeholder="abcde" maxlength="6" autocomplete="off"
+               spellcheck="false" autocorrect="off" autocapitalize="none"
+               aria-label="Match code">
+        <button class="btn-watch" onclick="goToMatch()">Watch →</button>
+      </div>
+      <div class="entry-error" id="entry-error" aria-live="polite"></div>
+    </div>
+
+  </div>
+
+  <!-- ══ SCOREBOARD VIEW ═══════════════════════════════════════════════════ -->
+  <div id="view-score" style="display:none; flex:1; flex-direction:column;">
+
+    <header class="top-bar">
+      <a href="/display.html">
+        <img src="Qscore logo plain.svg" alt="Qscore" class="top-logo" title="All matches">
+      </a>
+      <div class="top-bar-center" id="set-label">SET 1</div>
+      <button class="btn-flip" id="btn-flip" onclick="toggleLocalSwap()" aria-label="Flip team sides">⇄ Flip</button>
+    </header>
+
+    <div class="sr-only" aria-live="polite" id="serve-announce"></div>
+
+    <main class="scoreboard" id="scoreboard">
+
+      <section class="team a" id="team-a" aria-label="Team A">
+        <div class="q-wrapper">
+          <svg class="q-bg" viewBox="56 40 522 480" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+            <path d="M 140,52 L 452,52 L 528,128 L 528,418 L 452,494 L 140,494 L 64,418 L 64,128 Z" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="5" stroke-opacity="0.3" stroke-linejoin="round"/>
+            <path d="M 166,143 L 432,143 Q 450,143 450,161 L 450,374 Q 450,392 432,392 L 166,392 Q 148,392 148,374 L 148,161 Q 148,143 166,143 Z" fill="white" stroke="currentColor" stroke-width="5" stroke-opacity="0.3"/>
+            <path d="M 432,355 L 462,355 L 548,441 L 548,474 L 504,474 L 418,388 Z" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="5" stroke-opacity="0.3" stroke-linejoin="round"/>
+            <rect x="551" y="444" width="14" height="14" rx="2" fill="currentColor" fill-opacity="0.55"/>
+            <rect x="559" y="462" width="11" height="11" rx="2" fill="currentColor" fill-opacity="0.38"/>
+            <rect x="544" y="462" width="10" height="10" rx="2" fill="currentColor" fill-opacity="0.26"/>
+            <rect x="563" y="476" width="7"  height="7"  rx="1" fill="currentColor" fill-opacity="0.16"/>
+            <rect x="550" y="476" width="7"  height="7"  rx="1" fill="currentColor" fill-opacity="0.11"/>
+          </svg>
+          <div class="q-name" id="name-a">TEAM A</div>
+          <div class="q-score" id="score-a" aria-label="Team A score: 0">0</div>
+        </div>
+        <div class="below-row">
+          <div class="sets-row" id="sets-a" aria-label="0 sets won"></div>
+          <div class="serve-badge" aria-hidden="true">● SERVING</div>
+          <div class="set-history" id="hist-a"></div>
+        </div>
+      </section>
+
+      <section class="team b" id="team-b" aria-label="Team B">
+        <div class="q-wrapper">
+          <svg class="q-bg" viewBox="56 40 522 480" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+            <path d="M 140,52 L 452,52 L 528,128 L 528,418 L 452,494 L 140,494 L 64,418 L 64,128 Z" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="5" stroke-opacity="0.3" stroke-linejoin="round"/>
+            <path d="M 166,143 L 432,143 Q 450,143 450,161 L 450,374 Q 450,392 432,392 L 166,392 Q 148,392 148,374 L 148,161 Q 148,143 166,143 Z" fill="white" stroke="currentColor" stroke-width="5" stroke-opacity="0.3"/>
+            <path d="M 432,355 L 462,355 L 548,441 L 548,474 L 504,474 L 418,388 Z" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="5" stroke-opacity="0.3" stroke-linejoin="round"/>
+            <rect x="551" y="444" width="14" height="14" rx="2" fill="currentColor" fill-opacity="0.55"/>
+            <rect x="559" y="462" width="11" height="11" rx="2" fill="currentColor" fill-opacity="0.38"/>
+            <rect x="544" y="462" width="10" height="10" rx="2" fill="currentColor" fill-opacity="0.26"/>
+            <rect x="563" y="476" width="7"  height="7"  rx="1" fill="currentColor" fill-opacity="0.16"/>
+            <rect x="550" y="476" width="7"  height="7"  rx="1" fill="currentColor" fill-opacity="0.11"/>
+          </svg>
+          <div class="q-name" id="name-b">TEAM B</div>
+          <div class="q-score" id="score-b" aria-label="Team B score: 0">0</div>
+        </div>
+        <div class="below-row">
+          <div class="sets-row" id="sets-b" aria-label="0 sets won"></div>
+          <div class="serve-badge" aria-hidden="true">● SERVING</div>
+          <div class="set-history" id="hist-b"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <div class="celebration" id="celebration" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="cel-label"  id="cel-label">SET WON</div>
+      <div class="cel-winner" id="cel-winner">TEAM A</div>
+      <div class="cel-score"  id="cel-score">25 – 20</div>
+    </div>
+
+  </div>
+
+  <!-- ══ WAITING SCREEN ════════════════════════════════════════════════════ -->
+  <div class="no-signal" id="no-signal">
+    <img class="no-signal-icon" src="Qscore logo mounted 512px.png" alt="" aria-hidden="true">
+    <div class="no-signal-text" id="no-signal-text">Waiting for match data…</div>
+  </div>
+
+  <div class="copyright">©2026 W. Brian Quinn, all rights reserved</div>
+
+  <script src="js/app-config.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/backend.js"></script>
+  <script>
+  const SETS_TO_WIN = 3;
+
+  /* ── Resolve match ID from URL ───────────────────────────────── */
+  const params  = new URLSearchParams(location.search);
+  const matchId = (params.get('id') || '').trim().toLowerCase() || null;
+
+  let prevState        = null;
+  let celebrationTimer = null;
+  let prevA = -1, prevB = -1;
+  let localSwapped     = false;
+
+  /* ── Boot ────────────────────────────────────────────────────── */
+  if (!matchId) {
+    // No ID — show entry screen
+    document.getElementById('no-signal').classList.add('hidden');
+    document.getElementById('view-entry').style.display = 'flex';
+    document.getElementById('code-input').focus();
+  } else {
+    // ID present — show waiting then load scoreboard
+    document.getElementById('view-score').style.display = 'flex';
+
+    window.addEventListener('backend:ready', () => {
+      backend.onMatches(data => {
+        const all = data || {};
+        if (all[matchId]) {
+          const curr = all[matchId];
+          checkCelebration(prevState, curr);
+          announceServeChange(prevState, curr);
+          renderScore(curr);
+          prevState = curr;
+          document.getElementById('no-signal').classList.add('hidden');
+        } else if (prevState) {
+          // Match was deleted / not yet arrived — keep showing last state
+        } else {
+          document.getElementById('no-signal-text').textContent = `Waiting for match "${matchId}"…`;
+        }
+      });
+    });
+  }
+
+  /* ── Entry screen ────────────────────────────────────────────── */
+  function goToMatch() {
+    const code = document.getElementById('code-input').value.trim().toLowerCase();
+    const err  = document.getElementById('entry-error');
+    if (!code) { err.textContent = 'Please enter a match code.'; return; }
+    err.textContent = '';
+    location.href = `/quickdisplay.html?id=${encodeURIComponent(code)}`;
+  }
+
+  document.getElementById('code-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') goToMatch();
+  });
+
+  /* ── Flip ─────────────────────────────────────────────────────── */
+  function toggleLocalSwap() {
+    localSwapped = !localSwapped;
+    document.getElementById('btn-flip').classList.toggle('active', localSwapped);
+    if (prevState) applySwap(prevState);
+  }
+
+  function applySwap(s) {
+    const swapped = !!s.sidesSwapped !== localSwapped;
+    document.getElementById('scoreboard').classList.toggle('swapped', swapped);
+  }
+
+  /* ── Scoreboard rendering ─────────────────────────────────────── */
+  function renderScore(s) {
+    applySwap(s);
+    document.getElementById('name-a').textContent = s.teamA?.name || 'TEAM A';
+    document.getElementById('name-b').textContent = s.teamB?.name || 'TEAM B';
+    document.getElementById('team-a').setAttribute('aria-label', s.teamA?.name || 'Team A');
+    document.getElementById('team-b').setAttribute('aria-label', s.teamB?.name || 'Team B');
+    animScore('score-a', s.teamA?.score ?? 0, s.teamA?.name || 'Team A');
+    animScore('score-b', s.teamB?.score ?? 0, s.teamB?.name || 'Team B');
+    document.getElementById('set-label').textContent = `SET ${s.currentSet ?? 1}`;
+    document.getElementById('team-a').className = 'team a' + (s.serving === 'A' ? ' serving' : '');
+    document.getElementById('team-b').className = 'team b' + (s.serving === 'B' ? ' serving' : '');
+    renderPips('sets-a', s.teamA?.sets ?? 0, s.teamA?.name || 'Team A');
+    renderPips('sets-b', s.teamB?.sets ?? 0, s.teamB?.name || 'Team B');
+    const hist = s.setHistory || [];
+    document.getElementById('hist-a').textContent = hist.map(h => h.a).join('   ') || '';
+    document.getElementById('hist-b').textContent = hist.map(h => h.b).join('   ') || '';
+  }
+
+  function animScore(id, val, teamName) {
+    const el = document.getElementById(id);
+    const p  = id.endsWith('a') ? prevA : prevB;
+    if (val !== p) {
+      el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+      if (id.endsWith('a')) prevA = val; else prevB = val;
+    }
+    el.textContent = val;
+    el.setAttribute('aria-label', `${teamName} score: ${val}`);
+  }
+
+  function renderPips(id, filled, teamName) {
+    const el = document.getElementById(id);
+    el.setAttribute('aria-label', `${teamName}: ${filled} of ${SETS_TO_WIN} sets won`);
+    el.innerHTML = '';
+    for (let i = 0; i < SETS_TO_WIN; i++) {
+      const pip = document.createElement('img');
+      pip.src = i < filled ? 'Qscore logo plain.svg' : 'Qscore logo outline.svg';
+      pip.alt = '';
+      pip.className = 'set-pip' + (i < filled ? ' won' : '');
+      pip.setAttribute('aria-hidden', 'true');
+      el.appendChild(pip);
+    }
+  }
+
+  function announceServeChange(prev, curr) {
+    if (!prev || prev.serving === curr.serving) return;
+    const name = curr.serving === 'A' ? curr.teamA?.name : curr.teamB?.name;
+    document.getElementById('serve-announce').textContent = `${name} is now serving`;
+  }
+
+  function checkCelebration(prev, curr) {
+    if (!prev) return;
+    const pA = prev.teamA?.sets || 0, pB = prev.teamB?.sets || 0;
+    const cA = curr.teamA?.sets || 0, cB = curr.teamB?.sets || 0;
+    let winner = null, isMatch = false, colour = 'var(--a)';
+    if      (cA > pA) { winner = curr.teamA?.name; isMatch = cA >= SETS_TO_WIN; colour = 'var(--a)'; }
+    else if (cB > pB) { winner = curr.teamB?.name; isMatch = cB >= SETS_TO_WIN; colour = 'var(--b)'; }
+    if (!winner) return;
+    const hist    = curr.setHistory || [];
+    const lastSet = hist[hist.length - 1];
+    showCelebration(
+      isMatch ? 'Match Won' : `Set ${prev.currentSet} Won`,
+      winner, colour,
+      lastSet ? `${lastSet.a} – ${lastSet.b}` : '',
+      isMatch ? 9000 : 5500
+    );
+  }
+
+  function showCelebration(label, winner, colour, score, dur) {
+    document.getElementById('cel-label').textContent  = label;
+    document.getElementById('cel-winner').textContent = winner;
+    document.getElementById('cel-winner').style.color = colour;
+    document.getElementById('cel-score').textContent  = score;
+    document.getElementById('celebration').classList.add('show');
+    clearTimeout(celebrationTimer);
+    celebrationTimer = setTimeout(() =>
+      document.getElementById('celebration').classList.remove('show'), dur);
+  }
+  </script>
+</body>
+</html>
