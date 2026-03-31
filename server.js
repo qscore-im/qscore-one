@@ -23,6 +23,18 @@ const PORT   = process.env.PORT || 3000;
 // Serve everything in /public
 app.use(express.static(path.join(__dirname, 'public')));
 
+// 404 handler — static middleware didn't match anything
+app.use((_req, res) => {
+  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
+
+// 500 handler — catches synchronous throws from any middleware above
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  console.error('[error]', err.stack ?? err.message ?? err);
+  res.status(500).send('Internal server error');
+});
+
 // In-memory matches store: { [id]: matchState }
 const matches = {};
 

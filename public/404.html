@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — Page Not Found</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:   #0a0a0a;
+      --card: #1a1a1a;
+      --text: #f0f0f0;
+      --muted: #888;
+      --a:    #e63946;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Arial Narrow', Arial, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 3rem 4rem;
+      max-width: 400px;
+    }
+
+    .logo {
+      width: auto;
+      height: 50vh;
+      max-width: 100%;
+      display: block;
+      margin: 0 auto 1.5rem;
+    }
+
+    h1 {
+      font-size: 5rem;
+      font-weight: 900;
+      letter-spacing: -2px;
+      color: var(--a);
+      line-height: 1;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin: 0.5rem 0 1.5rem;
+    }
+
+    p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    .links {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    a {
+      display: inline-block;
+      padding: 0.6rem 1.4rem;
+      background: var(--a);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    a.secondary {
+      background: transparent;
+      border: 2px solid var(--muted);
+      color: var(--muted);
+    }
+
+    a:hover, a:focus {
+      opacity: 0.85;
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="/Qscore logo.png" alt="Qscore">
+    <h1>404</h1>
+    <h2>Page Not Found</h2>
+    <p>That page doesn't exist. Head back to the scorekeeper or TV display.</p>
+    <nav class="links" aria-label="Return to app">
+      <a href="/scorekeeper.html">Scorekeeper</a>
+      <a href="/display.html" class="secondary">TV Display</a>
+    </nav>
+  </div>
+</body>
+</html>

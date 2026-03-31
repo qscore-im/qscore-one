@@ -12,7 +12,7 @@
     "test":              "playwright test"
   },
   "dependencies": {
-    "express": "^4.19.2",
+    "express": "^5.2.1",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
@@ -21,6 +21,6 @@
     "wrangler": "^4.78.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   }
 }
