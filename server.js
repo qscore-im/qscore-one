@@ -1,6 +1,8 @@
 /**
  * server.js — local Socket.io server for volleyball scoreboard
  *
+ * Stores all matches in memory as a flat map keyed by match ID.
+ *
  * Usage:
  *   node server.js
  *   PORT=8080 node server.js
@@ -21,53 +23,61 @@ const PORT   = process.env.PORT || 3000;
 // Serve everything in /public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// In-memory match state
-let matchState = freshState();
-
-function freshState() {
-  return {
-    teamA:      { name: 'TEAM A', score: 0, sets: 0 },
-    teamB:      { name: 'TEAM B', score: 0, sets: 0 },
-    serving:    'A',
-    currentSet: 1,
-    setHistory: [],
-    matchOver:  false
-  };
-}
+// In-memory matches store: { [id]: matchState }
+const matches = {};
 
 /**
- * Apply a flat patch to matchState.
- * Supports slash-notation for nested keys, e.g. { 'teamA/score': 5 }
- * This mirrors Firebase's update() semantics so scorekeeper logic is backend-agnostic.
+ * Apply a flat slash-notation patch to a match object.
+ * e.g. { 'teamA/score': 5 } sets matches[id].teamA.score = 5
  */
-function applyPatch(patch) {
+function applyPatch(match, patch) {
   for (const [key, value] of Object.entries(patch)) {
     const parts = key.split('/');
     if (parts.length === 1) {
-      matchState[key] = value;
+      match[key] = value;
     } else if (parts.length === 2) {
-      if (!matchState[parts[0]]) matchState[parts[0]] = {};
-      matchState[parts[0]][parts[1]] = value;
+      if (!match[parts[0]]) match[parts[0]] = {};
+      match[parts[0]][parts[1]] = value;
     }
   }
+}
+
+function broadcast() {
+  io.emit('matches', matches);
 }
 
 io.on('connection', socket => {
   console.log(`[+] Client connected    (${socket.id})  total: ${io.engine.clientsCount}`);
 
   // Send full current state immediately on connect
-  socket.emit('state', matchState);
+  socket.emit('matches', matches);
 
-  // Partial update (e.g. score change, serve switch)
-  socket.on('update', patch => {
-    applyPatch(patch);
-    io.emit('state', matchState);
+  // Create a new match
+  socket.on('createMatch', matchData => {
+    if (!matchData || !matchData.id) return;
+    matches[matchData.id] = matchData;
+    broadcast();
   });
 
-  // Full replacement (reset match)
-  socket.on('replace', newState => {
-    matchState = newState;
-    io.emit('state', matchState);
+  // Partial update to one match
+  socket.on('updateMatch', ({ id, patch }) => {
+    if (!id || !matches[id]) return;
+    applyPatch(matches[id], patch);
+    broadcast();
+  });
+
+  // Full replacement of one match
+  socket.on('replaceMatch', ({ id, state }) => {
+    if (!id) return;
+    matches[id] = state;
+    broadcast();
+  });
+
+  // Delete a match
+  socket.on('deleteMatch', ({ id }) => {
+    if (!id) return;
+    delete matches[id];
+    broadcast();
   });
 
   socket.on('disconnect', () => {

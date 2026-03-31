@@ -1,16 +1,23 @@
 /**
- * backend.js — unified adapter for Socket.io (local) and Firebase (hosted)
+ * backend.js — unified adapter for Socket.io (local), Firebase (hosted), and
+ *              Cloudflare Workers + Durable Objects (cloudflare).
  *
- * Auto-detects based on hostname:
- *   localhost / 127.0.0.1 / 192.168.x.x / 10.x.x.x  →  Socket.io
- *   anything else                                      →  Firebase Realtime DB
+ * Backend selection (checked in order):
+ *   1. window.APP_CONFIG.backend  — explicit override in app-config.js
+ *   2. Auto-detect by hostname:
+ *        localhost / 127.0.0.1 / 192.168.x.x / 10.x.x.x  →  Socket.io
+ *        anything else                                      →  Firebase
  *
  * Public API (available on window.backend after the 'backend:ready' event):
- *   backend.onState(fn)        — subscribe to full state updates
- *   backend.update(patch)      — shallow-merge patch into match state
- *   backend.replace(state)     — replace entire match state
- *   backend.onConnect(fn)      — called when connection is established
- *   backend.onDisconnect(fn)   — called when connection is lost
+ *
+ *   backend.onMatches(fn)            — subscribe; fn(matches) on every change
+ *                                      matches = { [id]: matchState }
+ *   backend.createMatch(matchData)   — add a new match (matchData must have .id)
+ *   backend.updateMatch(id, patch)   — slash-notation patch to one match
+ *   backend.replaceMatch(id, state)  — replace entire match state
+ *   backend.deleteMatch(id)          — remove a match
+ *   backend.onConnect(fn)            — called when connection established
+ *   backend.onDisconnect(fn)         — called when connection lost
  */
 
 (function () {
@@ -32,36 +39,38 @@
     document.head.appendChild(s);
   }
 
-  const stateListeners      = [];
-  const connectListeners    = [];
+  const matchesListeners  = [];
+  const connectListeners  = [];
   const disconnectListeners = [];
 
-  function notifyState(state) { stateListeners.forEach(fn => fn(state)); }
-  function notifyConnect()    { connectListeners.forEach(fn => fn()); }
-  function notifyDisconnect() { disconnectListeners.forEach(fn => fn()); }
+  function notifyMatches(matches)  { matchesListeners.forEach(fn => fn(matches)); }
+  function notifyConnect()         { connectListeners.forEach(fn => fn()); }
+  function notifyDisconnect()      { disconnectListeners.forEach(fn => fn()); }
 
-  // ── Socket.io backend ─────────────────────────────────────────
+  // ── Socket.io backend ─────────────────────────────────────────────────────
   function initSocketIO() {
     console.log('[backend] Using Socket.io (local)');
     const socket = io();
 
     socket.on('connect',    notifyConnect);
     socket.on('disconnect', notifyDisconnect);
-    socket.on('state', state => notifyState(state));
+    socket.on('matches',    data => notifyMatches(data || {}));
 
     window.backend = {
       mode: 'socketio',
-      onState(fn)      { stateListeners.push(fn); },
-      onConnect(fn)    { connectListeners.push(fn); if (socket.connected) fn(); },
-      onDisconnect(fn) { disconnectListeners.push(fn); },
-      update(patch)    { socket.emit('update', patch); },
-      replace(state)   { socket.emit('replace', state); },
+      onMatches(fn)              { matchesListeners.push(fn); },
+      onConnect(fn)              { connectListeners.push(fn); if (socket.connected) fn(); },
+      onDisconnect(fn)           { disconnectListeners.push(fn); },
+      createMatch(matchData)     { socket.emit('createMatch', matchData); },
+      updateMatch(id, patch)     { socket.emit('updateMatch', { id, patch }); },
+      replaceMatch(id, state)    { socket.emit('replaceMatch', { id, state }); },
+      deleteMatch(id)            { socket.emit('deleteMatch', { id }); },
     };
 
     window.dispatchEvent(new Event('backend:ready'));
   }
 
-  // ── Firebase backend ──────────────────────────────────────────
+  // ── Firebase backend ──────────────────────────────────────────────────────
   function initFirebase() {
     console.log('[backend] Using Firebase Realtime Database');
 
@@ -71,34 +80,96 @@
     }
 
     firebase.initializeApp(window.FIREBASE_CONFIG);
-    const db       = firebase.database();
-    const matchRef = db.ref('volleyball/match');
+    const db         = firebase.database();
+    const matchesRef = db.ref('volleyball/matches');
 
     db.ref('.info/connected').on('value', snap => {
       snap.val() ? notifyConnect() : notifyDisconnect();
     });
 
-    matchRef.on('value', snap => {
-      const data = snap.val();
-      if (data) notifyState(data);
+    matchesRef.on('value', snap => {
+      notifyMatches(snap.val() || {});
     });
 
     window.backend = {
       mode: 'firebase',
-      onState(fn)      { stateListeners.push(fn); },
-      onConnect(fn)    { connectListeners.push(fn); },
-      onDisconnect(fn) { disconnectListeners.push(fn); },
-      update(patch)    { matchRef.update(patch); },
-      replace(state)   { matchRef.set(state); },
+      onMatches(fn)           { matchesListeners.push(fn); },
+      onConnect(fn)           { connectListeners.push(fn); },
+      onDisconnect(fn)        { disconnectListeners.push(fn); },
+      createMatch(matchData)  { matchesRef.child(matchData.id).set(matchData); },
+      updateMatch(id, patch)  { matchesRef.child(id).update(patch); },
+      replaceMatch(id, state) { matchesRef.child(id).set(state); },
+      deleteMatch(id)         { matchesRef.child(id).remove(); },
     };
 
     window.dispatchEvent(new Event('backend:ready'));
   }
 
-  // ── Bootstrap ──────────────────────────────────────────────────
-  if (isLocal()) {
+  // ── Cloudflare Workers + Durable Objects backend ──────────────────────────
+  function initCloudflare(workerUrl) {
+    console.log('[backend] Using Cloudflare Workers WebSocket');
+
+    let ws;
+    let reconnectTimer;
+
+    function connect() {
+      ws = new WebSocket(workerUrl);
+
+      ws.onopen = () => {
+        clearTimeout(reconnectTimer);
+        notifyConnect();
+      };
+
+      ws.onclose = () => {
+        notifyDisconnect();
+        reconnectTimer = setTimeout(connect, 3000);
+      };
+
+      ws.onerror = err => {
+        console.error('[backend] WebSocket error', err);
+      };
+
+      ws.onmessage = evt => {
+        try {
+          const msg = JSON.parse(evt.data);
+          if (msg.type === 'matches') notifyMatches(msg.data || {});
+        } catch (e) {
+          console.error('[backend] Bad message', e);
+        }
+      };
+    }
+
+    function send(msg) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
+      }
+    }
+
+    connect();
+
+    window.backend = {
+      mode: 'cloudflare',
+      onMatches(fn)           { matchesListeners.push(fn); },
+      onConnect(fn)           { connectListeners.push(fn); },
+      onDisconnect(fn)        { disconnectListeners.push(fn); },
+      createMatch(matchData)  { send({ type: 'createMatch', data: matchData }); },
+      updateMatch(id, patch)  { send({ type: 'updateMatch', id, patch }); },
+      replaceMatch(id, state) { send({ type: 'replaceMatch', id, state }); },
+      deleteMatch(id)         { send({ type: 'deleteMatch', id }); },
+    };
+
+    window.dispatchEvent(new Event('backend:ready'));
+  }
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
+  const cfg = window.APP_CONFIG || {};
+
+  if (cfg.backend === 'cloudflare' && cfg.cloudflareWorkerUrl) {
+    initCloudflare(cfg.cloudflareWorkerUrl);
+  } else if (cfg.backend === 'socketio' || (cfg.backend === 'auto' || !cfg.backend) && isLocal()) {
     loadScript('/socket.io/socket.io.js', initSocketIO);
   } else {
+    // firebase (explicit) or auto-detect non-local
     loadScript(
       'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
       () => loadScript(

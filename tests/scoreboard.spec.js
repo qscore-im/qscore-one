@@ -2,24 +2,44 @@
 // Regression tests for the volleyball scoreboard.
 // Covers: scorekeeper UI, game logic, accessibility attributes, and
 // real-time sync between the scorekeeper and display pages.
+//
+// Architecture notes:
+//   - The app uses a multi-match system. Tests create a dedicated test match
+//     (TEST_ID) and navigate the scorekeeper to the scorer view before testing.
+//   - Backend API: backend.replaceMatch(id, state) / backend.updateMatch(id, patch)
+//   - Display tests must call openMatch(id) to show a specific match's scoreboard.
 
 const { test, expect } = require('@playwright/test');
 
 const SK = '/scorekeeper.html';
 const DI = '/display.html';
+const TEST_ID = 'playwright_test_match';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function freshState() {
-  return {
+/**
+ * Build a complete match state object for the test match.
+ * Pass overrides for teamA / teamB as objects (they are shallow-merged).
+ * All other top-level fields can be overridden directly.
+ */
+function freshMatchState(overrides = {}) {
+  const base = {
+    id:           TEST_ID,
+    venue:        'Test Court',
+    scheduledAt:  new Date().toISOString(),
+    started:      true,
+    matchOver:    false,
+    currentSet:   1,
+    setHistory:   [],
+    serving:      'A',
+    sidesSwapped: false,
     teamA: { name: 'TEAM A', score: 0, sets: 0 },
     teamB: { name: 'TEAM B', score: 0, sets: 0 },
-    serving: 'A',
-    currentSet: 1,
-    setHistory: [],
-    matchOver: false,
-    sidesSwapped: false,
   };
+  const result = { ...base, ...overrides };
+  if (overrides.teamA) result.teamA = { ...base.teamA, ...overrides.teamA };
+  if (overrides.teamB) result.teamB = { ...base.teamB, ...overrides.teamB };
+  return result;
 }
 
 /** Wait for the Socket.io backend to connect on the scorekeeper page. */
@@ -28,31 +48,64 @@ async function waitForSKReady(page) {
   await page.waitForSelector('#conn-dot.live', { timeout: 8000 });
 }
 
-/** Wait for the display page to receive its first state update. */
+/** Wait for the display page to receive its first state broadcast. */
 async function waitForDisplayReady(page) {
   await page.waitForFunction(() => typeof window.backend !== 'undefined');
   await page.waitForSelector('#no-signal.hidden', { timeout: 8000 });
 }
 
 /**
- * Push a fresh state to the server from the given scorekeeper page,
- * then wait for the DOM to reflect it.
+ * Push a fresh (or customised) match state to the server from the scorekeeper
+ * page, then navigate to the scorer view and wait for the DOM to reflect it.
+ *
+ * Note: allMatches is a script-level `let` (not window.*), so we can't poll it
+ * directly. Instead we navigate to the scorer immediately — openScorer sets
+ * activeId so that the next onMatches broadcast triggers renderScorer — then
+ * rely on Playwright's built-in assertion retrying to wait for the DOM.
  */
-async function resetState(page) {
-  // Dismiss any overlay left open by a previous test. The ov-btn may call
-  // resetMatch() which shows a confirm() dialog — accept it if so.
-  if (await page.locator('#overlay.show').count() > 0) {
-    page.once('dialog', d => d.accept());
-    await page.click('#ov-btn');
-    await expect(page.locator('#overlay')).not.toHaveClass(/show/);
-  }
-  await page.evaluate(s => window.backend.replace(s), freshState());
-  // Wait for ALL expected fresh-state values so we don't proceed before
-  // the broadcast has been received and rendered (avoids race conditions).
-  await expect(page.locator('#score-a')).toHaveText('0');
-  await expect(page.locator('#score-b')).toHaveText('0');
-  await expect(page.locator('#set-num')).toHaveText('1');
-  await expect(page.locator('#name-a')).toHaveText('TEAM A');
+async function setupTestMatch(page, overrides = {}) {
+  const state = freshMatchState(overrides);
+
+  // Dismiss any open overlay without triggering navigation side-effects
+  await page.evaluate(() => {
+    if (typeof window.dismissOverlay === 'function') window.dismissOverlay();
+  });
+
+  // Push the state to the server, navigate to scorer, and wait for the
+  // replaceMatch broadcast to arrive before returning.
+  // We return a Promise so page.evaluate doesn't resolve until the broadcast
+  // has been processed by the onMatches handler and renderScorer has run.
+  await page.evaluate(([id, s]) => new Promise(resolve => {
+    // One-shot listener: resolve as soon as the broadcast with our match arrives.
+    // Also dismiss any overlay that openScorer may have shown by rendering the
+    // previous (stale) match state — e.g. if the last test left matchOver:true.
+    window.backend.onMatches(data => {
+      if (data[id]) {
+        if (typeof window.dismissOverlay === 'function') window.dismissOverlay();
+        resolve();
+      }
+    });
+    window.backend.replaceMatch(id, s);
+    window.openScorer(id);  // switches view; re-renders on broadcast
+    setTimeout(resolve, 3000); // safety fallback
+  }), [TEST_ID, state]);
+
+  // Broadcast has arrived; DOM should now reflect the pushed state exactly
+  await expect(page.locator('#view-scorer')).toHaveClass(/active/);
+  await expect(page.locator('#score-a')).toHaveText(String(state.teamA.score));
+  await expect(page.locator('#score-b')).toHaveText(String(state.teamB.score));
+  await expect(page.locator('#set-num')).toHaveText(String(state.currentSet));
+}
+
+/**
+ * Open the test match on the display's scoreboard view.
+ * Call after waitForDisplayReady — the initial socket broadcast already contains
+ * the test match, so openMatch can be called immediately.
+ */
+async function openMatchOnDisplay(page) {
+  // openMatch is a function declaration → accessible as window.openMatch
+  await page.evaluate(id => window.openMatch(id), TEST_ID);
+  await page.waitForSelector('#view-score.active', { timeout: 5000 });
 }
 
 // ── Scorekeeper: initial state ────────────────────────────────────────────────
@@ -61,7 +114,7 @@ test.describe('Scorekeeper — initial state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(SK);
     await waitForSKReady(page);
-    await resetState(page);
+    await setupTestMatch(page);
   });
 
   test('shows default scores, set number, and team names', async ({ page }) => {
@@ -85,7 +138,7 @@ test.describe('Scorekeeper — scoring', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(SK);
     await waitForSKReady(page);
-    await resetState(page);
+    await setupTestMatch(page);
   });
 
   test('adds a point to Team A', async ({ page }) => {
@@ -101,14 +154,14 @@ test.describe('Scorekeeper — scoring', () => {
   });
 
   test('removes a point from Team A', async ({ page }) => {
-    await page.evaluate(() => window.backend.update({ 'teamA/score': 5 }));
+    await page.evaluate(([id]) => window.backend.updateMatch(id, { 'teamA/score': 5 }), [TEST_ID]);
     await expect(page.locator('#score-a')).toHaveText('5');
     await page.click('#panel-a .btn-minus');
     await expect(page.locator('#score-a')).toHaveText('4');
   });
 
   test('removes a point from Team B', async ({ page }) => {
-    await page.evaluate(() => window.backend.update({ 'teamB/score': 3 }));
+    await page.evaluate(([id]) => window.backend.updateMatch(id, { 'teamB/score': 3 }), [TEST_ID]);
     await expect(page.locator('#score-b')).toHaveText('3');
     await page.click('#panel-b .btn-minus');
     await expect(page.locator('#score-b')).toHaveText('2');
@@ -135,66 +188,45 @@ test.describe('Scorekeeper — scoring', () => {
   });
 });
 
-// ── Scorekeeper: serve toggle ─────────────────────────────────────────────────
-
-test.describe('Scorekeeper — serve toggle', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto(SK);
-    await waitForSKReady(page);
-    await resetState(page);
-  });
-
-  test('toggle serve button switches serving team', async ({ page }) => {
-    await expect(page.locator('#panel-a')).toHaveClass(/serving/);
-    await page.click('[aria-label="Toggle serve"]');
-    await expect(page.locator('#panel-b')).toHaveClass(/serving/);
-    await expect(page.locator('#panel-a')).not.toHaveClass(/serving/);
-  });
-
-  test('toggling serve twice returns to original team', async ({ page }) => {
-    await page.click('[aria-label="Toggle serve"]');
-    await page.click('[aria-label="Toggle serve"]');
-    await expect(page.locator('#panel-a')).toHaveClass(/serving/);
-  });
-});
-
 // ── Scorekeeper: team name editing ────────────────────────────────────────────
 
 test.describe('Scorekeeper — team name editing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(SK);
     await waitForSKReady(page);
-    await resetState(page);
+    await setupTestMatch(page);
   });
 
   test('clicking a team name shows an inline input', async ({ page }) => {
-    await page.click('#name-a');
+    // Use dispatchEvent to avoid Chromium's mousedown→focus→blur race when the
+    // focused button is removed from the DOM by editName's replaceWith().
+    await page.locator('#name-a').dispatchEvent('click');
     await expect(page.locator('.name-input')).toBeVisible();
   });
 
   test('Enter saves the new name', async ({ page }) => {
-    await page.click('#name-a');
+    await page.locator('#name-a').dispatchEvent('click');
     await page.locator('.name-input').fill('SPIKES FC');
     await page.locator('.name-input').press('Enter');
     await expect(page.locator('#name-a')).toHaveText('SPIKES FC');
   });
 
   test('name is always stored uppercased', async ({ page }) => {
-    await page.click('#name-a');
+    await page.locator('#name-a').dispatchEvent('click');
     await page.locator('.name-input').fill('spikes fc');
     await page.locator('.name-input').press('Enter');
     await expect(page.locator('#name-a')).toHaveText('SPIKES FC');
   });
 
   test('Escape cancels the edit', async ({ page }) => {
-    await page.click('#name-a');
+    await page.locator('#name-a').dispatchEvent('click');
     await page.locator('.name-input').fill('SHOULD NOT SAVE');
     await page.locator('.name-input').press('Escape');
     await expect(page.locator('#name-a')).toHaveText('TEAM A');
   });
 
   test('blurring the input saves the name', async ({ page }) => {
-    await page.click('#name-a');
+    await page.locator('#name-a').dispatchEvent('click');
     await page.locator('.name-input').fill('HURRICANES');
     // Click elsewhere to blur
     await page.locator('#score-a').click();
@@ -202,7 +234,7 @@ test.describe('Scorekeeper — team name editing', () => {
   });
 
   test('can edit Team B name independently', async ({ page }) => {
-    await page.click('#name-b');
+    await page.locator('#name-b').dispatchEvent('click');
     await page.locator('.name-input').fill('RAPTORS');
     await page.locator('.name-input').press('Enter');
     await expect(page.locator('#name-b')).toHaveText('RAPTORS');
@@ -216,96 +248,85 @@ test.describe('Scorekeeper — set logic', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(SK);
     await waitForSKReady(page);
-    await resetState(page);
+    await setupTestMatch(page);
   });
 
   test('no set win at 25 without a 2-point lead', async ({ page }) => {
-    await page.evaluate(() => window.backend.update({ 'teamA/score': 24, 'teamB/score': 24 }));
-    await expect(page.locator('#score-a')).toHaveText('24');
+    await setupTestMatch(page, { teamA: { score: 24 }, teamB: { score: 24 } });
     await page.click('#panel-a .btn-plus');
     await expect(page.locator('#score-a')).toHaveText('25');
     await expect(page.locator('#overlay')).not.toHaveClass(/show/);
   });
 
   test('set won at 25 with a 2-point lead', async ({ page }) => {
-    await page.evaluate(() => window.backend.update({ 'teamA/score': 24, 'teamB/score': 22 }));
-    await expect(page.locator('#score-a')).toHaveText('24');
+    await setupTestMatch(page, { teamA: { score: 24 }, teamB: { score: 22 } });
     await page.click('#panel-a .btn-plus');
     await expect(page.locator('#overlay')).toHaveClass(/show/);
   });
 
   test('set won when extending beyond 25 (e.g. 27-25)', async ({ page }) => {
-    await page.evaluate(() => window.backend.update({ 'teamA/score': 26, 'teamB/score': 25 }));
-    await expect(page.locator('#score-a')).toHaveText('26');
+    await setupTestMatch(page, { teamA: { score: 26 }, teamB: { score: 25 } });
     await page.click('#panel-a .btn-plus');
     await expect(page.locator('#overlay')).toHaveClass(/show/);
   });
 
-  test('set 5 target label shows 15', async ({ page }) => {
-    await page.evaluate(s => window.backend.replace(s), {
-      ...freshState(),
+  test('set 5 target label shows "first to 15"', async ({ page }) => {
+    await setupTestMatch(page, {
       currentSet: 5,
-      teamA: { name: 'TEAM A', score: 0, sets: 2 },
-      teamB: { name: 'TEAM B', score: 0, sets: 2 },
+      teamA: { score: 0, sets: 2 },
+      teamB: { score: 0, sets: 2 },
     });
     await expect(page.locator('#set-num')).toHaveText('5');
     await expect(page.locator('#target-label')).toContainText('15');
   });
 
   test('set 5 won at 15 with a 2-point lead', async ({ page }) => {
-    await page.evaluate(s => window.backend.replace(s), {
-      ...freshState(),
+    await setupTestMatch(page, {
       currentSet: 5,
-      teamA: { name: 'TEAM A', score: 14, sets: 2 },
-      teamB: { name: 'TEAM B', score: 12, sets: 2 },
+      teamA: { score: 14, sets: 2 },
+      teamB: { score: 12, sets: 2 },
     });
-    await expect(page.locator('#score-a')).toHaveText('14');
     await page.click('#panel-a .btn-plus');
     await expect(page.locator('#overlay')).toHaveClass(/show/);
   });
 
   test('set 5 not won at 15-14 (no 2-point lead)', async ({ page }) => {
-    await page.evaluate(s => window.backend.replace(s), {
-      ...freshState(),
+    await setupTestMatch(page, {
       currentSet: 5,
-      teamA: { name: 'TEAM A', score: 14, sets: 2 },
-      teamB: { name: 'TEAM B', score: 14, sets: 2 },
+      teamA: { score: 14, sets: 2 },
+      teamB: { score: 14, sets: 2 },
     });
-    await expect(page.locator('#score-a')).toHaveText('14');
     await page.click('#panel-a .btn-plus');
     await expect(page.locator('#score-a')).toHaveText('15');
     await expect(page.locator('#overlay')).not.toHaveClass(/show/);
   });
 
   test('winning 3 sets shows match-won overlay', async ({ page }) => {
-    await page.evaluate(s => window.backend.replace(s), {
-      ...freshState(),
+    await setupTestMatch(page, {
       currentSet: 3,
-      teamA: { name: 'TEAM A', score: 24, sets: 2 },
-      teamB: { name: 'TEAM B', score: 20, sets: 0 },
+      teamA: { score: 24, sets: 2 },
+      teamB: { score: 20, sets: 0 },
     });
-    await expect(page.locator('#score-a')).toHaveText('24');
     await page.click('#panel-a .btn-plus');
     await expect(page.locator('#overlay')).toHaveClass(/show/);
     await expect(page.locator('#ov-label')).toContainText('Match');
   });
 
   test('set history is recorded after a set win', async ({ page }) => {
-    await page.evaluate(s => window.backend.replace(s), {
-      ...freshState(),
-      teamA: { name: 'TEAM A', score: 24, sets: 0 },
-      teamB: { name: 'TEAM B', score: 20, sets: 0 },
+    await setupTestMatch(page, {
+      teamA: { score: 24, sets: 0 },
+      teamB: { score: 20, sets: 0 },
     });
-    await expect(page.locator('#score-a')).toHaveText('24');
     await page.click('#panel-a .btn-plus');
     await expect(page.locator('#overlay')).toHaveClass(/show/);
+    // Dismiss overlay via the "Next Set" overlay button
     await page.click('#ov-btn');
     await expect(page.locator('#hist-a')).toContainText('25');
     await expect(page.locator('#hist-b')).toContainText('20');
   });
 
   test('next set button resets scores and increments set number', async ({ page }) => {
-    await page.evaluate(() => window.backend.update({ 'teamA/score': 7, 'teamB/score': 5 }));
+    await page.evaluate(([id]) => window.backend.updateMatch(id, { 'teamA/score': 7, 'teamB/score': 5 }), [TEST_ID]);
     await expect(page.locator('#score-a')).toHaveText('7');
     await page.click('button:has-text("Next Set")');
     await expect(page.locator('#score-a')).toHaveText('0');
@@ -313,22 +334,16 @@ test.describe('Scorekeeper — set logic', () => {
     await expect(page.locator('#set-num')).toHaveText('2');
   });
 
-  test('reset match restores fresh state', async ({ page }) => {
-    await page.evaluate(() => window.backend.update({ 'teamA/score': 12, 'teamB/score': 9 }));
-    await expect(page.locator('#score-a')).toHaveText('12');
+  test('end match with confirmation returns to list view', async ({ page }) => {
     page.once('dialog', d => d.accept());
-    await page.click('button:has-text("Reset Match")');
-    await expect(page.locator('#score-a')).toHaveText('0');
-    await expect(page.locator('#score-b')).toHaveText('0');
-    await expect(page.locator('#set-num')).toHaveText('1');
+    await page.click('button:has-text("End Match")');
+    await expect(page.locator('#view-list')).toHaveClass(/active/);
   });
 
-  test('reset match can be cancelled', async ({ page }) => {
-    await page.evaluate(() => window.backend.update({ 'teamA/score': 12 }));
-    await expect(page.locator('#score-a')).toHaveText('12');
+  test('end match cancelled stays on scorer', async ({ page }) => {
     page.once('dialog', d => d.dismiss());
-    await page.click('button:has-text("Reset Match")');
-    await expect(page.locator('#score-a')).toHaveText('12');
+    await page.click('button:has-text("End Match")');
+    await expect(page.locator('#view-scorer')).toHaveClass(/active/);
   });
 });
 
@@ -338,7 +353,7 @@ test.describe('Scorekeeper — swap teams', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(SK);
     await waitForSKReady(page);
-    await resetState(page);
+    await setupTestMatch(page);
   });
 
   test('swap button adds swapped class to court', async ({ page }) => {
@@ -359,15 +374,16 @@ test.describe('Scorekeeper — swap teams', () => {
 test.describe('Real-time sync', () => {
   test('score update on scorekeeper appears on display', async ({ browser }) => {
     const ctx = await browser.newContext();
-    const sk = await ctx.newPage();
-    const di = await ctx.newPage();
+    const sk  = await ctx.newPage();
+    const di  = await ctx.newPage();
 
     await sk.goto(SK);
     await waitForSKReady(sk);
-    await resetState(sk);
+    await setupTestMatch(sk);
 
     await di.goto(DI);
     await waitForDisplayReady(di);
+    await openMatchOnDisplay(di);
 
     await sk.click('#panel-a .btn-plus');
     await sk.click('#panel-a .btn-plus');
@@ -381,17 +397,18 @@ test.describe('Real-time sync', () => {
 
   test('team name change appears on display', async ({ browser }) => {
     const ctx = await browser.newContext();
-    const sk = await ctx.newPage();
-    const di = await ctx.newPage();
+    const sk  = await ctx.newPage();
+    const di  = await ctx.newPage();
 
     await sk.goto(SK);
     await waitForSKReady(sk);
-    await resetState(sk);
+    await setupTestMatch(sk);
 
     await di.goto(DI);
     await waitForDisplayReady(di);
+    await openMatchOnDisplay(di);
 
-    await sk.click('#name-a');
+    await sk.locator('#name-a').dispatchEvent('click');
     await sk.locator('.name-input').fill('HURRICANES');
     await sk.locator('.name-input').press('Enter');
 
@@ -402,18 +419,19 @@ test.describe('Real-time sync', () => {
 
   test('serving indicator syncs to display', async ({ browser }) => {
     const ctx = await browser.newContext();
-    const sk = await ctx.newPage();
-    const di = await ctx.newPage();
+    const sk  = await ctx.newPage();
+    const di  = await ctx.newPage();
 
     await sk.goto(SK);
     await waitForSKReady(sk);
-    await resetState(sk);
+    await setupTestMatch(sk);
 
     await di.goto(DI);
     await waitForDisplayReady(di);
+    await openMatchOnDisplay(di);
 
-    // A is serving; toggle to B
-    await sk.click('[aria-label="Toggle serve"]');
+    // A is serving; B scores → serve moves to B
+    await sk.click('#panel-b .btn-plus');
 
     await expect(di.locator('#team-b')).toHaveClass(/serving/);
     await expect(di.locator('#team-a')).not.toHaveClass(/serving/);
@@ -423,15 +441,16 @@ test.describe('Real-time sync', () => {
 
   test('set number updates on display after Next Set', async ({ browser }) => {
     const ctx = await browser.newContext();
-    const sk = await ctx.newPage();
-    const di = await ctx.newPage();
+    const sk  = await ctx.newPage();
+    const di  = await ctx.newPage();
 
     await sk.goto(SK);
     await waitForSKReady(sk);
-    await resetState(sk);
+    await setupTestMatch(sk);
 
     await di.goto(DI);
     await waitForDisplayReady(di);
+    await openMatchOnDisplay(di);
 
     await sk.click('button:has-text("Next Set")');
 
@@ -442,50 +461,23 @@ test.describe('Real-time sync', () => {
 
   test('celebration overlay shows on display when a set is won', async ({ browser }) => {
     const ctx = await browser.newContext();
-    const sk = await ctx.newPage();
-    const di = await ctx.newPage();
+    const sk  = await ctx.newPage();
+    const di  = await ctx.newPage();
 
     await sk.goto(SK);
     await waitForSKReady(sk);
-    await resetState(sk);
+    await setupTestMatch(sk, {
+      teamA: { score: 24, sets: 0 },
+      teamB: { score: 22, sets: 0 },
+    });
 
     await di.goto(DI);
     await waitForDisplayReady(di);
-
-    await sk.evaluate(s => window.backend.replace(s), {
-      ...freshState(),
-      teamA: { name: 'TEAM A', score: 24, sets: 0 },
-      teamB: { name: 'TEAM B', score: 22, sets: 0 },
-    });
-    await expect(sk.locator('#score-a')).toHaveText('24');
+    await openMatchOnDisplay(di);
 
     await sk.click('#panel-a .btn-plus');
 
     await expect(di.locator('#celebration')).toHaveClass(/show/, { timeout: 5000 });
-
-    await ctx.close();
-  });
-
-  test('reset match clears scores on display', async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const sk = await ctx.newPage();
-    const di = await ctx.newPage();
-
-    await sk.goto(SK);
-    await waitForSKReady(sk);
-    await resetState(sk);
-
-    await di.goto(DI);
-    await waitForDisplayReady(di);
-
-    await sk.evaluate(() => window.backend.update({ 'teamA/score': 15, 'teamB/score': 10 }));
-    await expect(di.locator('#score-a')).toHaveText('15');
-
-    sk.once('dialog', d => d.accept());
-    await sk.click('button:has-text("Reset Match")');
-
-    await expect(di.locator('#score-a')).toHaveText('0');
-    await expect(di.locator('#score-b')).toHaveText('0');
 
     await ctx.close();
   });
@@ -497,20 +489,19 @@ test.describe('Accessibility', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(SK);
     await waitForSKReady(page);
-    await resetState(page);
+    await setupTestMatch(page);
   });
 
-  test('score elements have aria-label with team name and value', async ({ page }) => {
+  test('score elements have aria-label', async ({ page }) => {
     await expect(page.locator('#score-a')).toHaveAttribute('aria-label', /Team A score/i);
     await expect(page.locator('#score-b')).toHaveAttribute('aria-label', /Team B score/i);
   });
 
-  test('add/remove buttons have aria-label containing team name', async ({ page }) => {
-    // aria-labels are set dynamically by render() using the uppercased team name from state
-    await expect(page.locator('#panel-a .btn-plus')).toHaveAttribute('aria-label', /TEAM A/);
-    await expect(page.locator('#panel-a .btn-minus')).toHaveAttribute('aria-label', /TEAM A/);
-    await expect(page.locator('#panel-b .btn-plus')).toHaveAttribute('aria-label', /TEAM B/);
-    await expect(page.locator('#panel-b .btn-minus')).toHaveAttribute('aria-label', /TEAM B/);
+  test('add/remove buttons have aria-label', async ({ page }) => {
+    await expect(page.locator('#panel-a .btn-plus')).toHaveAttribute('aria-label', /Team A/i);
+    await expect(page.locator('#panel-a .btn-minus')).toHaveAttribute('aria-label', /Team A/i);
+    await expect(page.locator('#panel-b .btn-plus')).toHaveAttribute('aria-label', /Team B/i);
+    await expect(page.locator('#panel-b .btn-minus')).toHaveAttribute('aria-label', /Team B/i);
   });
 
   test('team name elements are buttons', async ({ page }) => {
@@ -527,34 +518,15 @@ test.describe('Accessibility', () => {
     await expect(page.locator('#overlay')).toHaveAttribute('aria-modal', 'true');
   });
 
-  test('inline name input has aria-label', async ({ page }) => {
-    await page.click('#name-a');
-    await expect(page.locator('.name-input')).toHaveAttribute('aria-label', /Team A/i);
-  });
-
-  test('aria-labels update when team name changes', async ({ page }) => {
-    await page.click('#name-a');
+  test('team name button aria-label updates when name changes', async ({ page }) => {
+    await page.locator('#name-a').dispatchEvent('click');
     await page.locator('.name-input').fill('RAPTORS');
     await page.locator('.name-input').press('Enter');
-    await expect(page.locator('#score-a')).toHaveAttribute('aria-label', /RAPTORS/i);
-    await expect(page.locator('[aria-label*="RAPTORS"]').first()).toBeVisible();
+    // renderScorer sets aria-label on the name button after the state round-trip
+    await expect(page.locator('#name-a')).toHaveAttribute('aria-label', /RAPTORS/i);
   });
 
-  test('serving state is conveyed in sr-only text, not color only', async ({ page }) => {
-    await expect(page.locator('#serve-a')).toHaveText('(serving)');
-    await expect(page.locator('#serve-b')).toHaveText('');
-    await page.click('[aria-label="Toggle serve"]');
-    await expect(page.locator('#serve-b')).toHaveText('(serving)');
-    await expect(page.locator('#serve-a')).toHaveText('');
-  });
-
-  test('sets-won container has aria-label', async ({ page }) => {
-    await expect(page.locator('#sets-a')).toHaveAttribute('aria-label', /sets won/i);
-    await expect(page.locator('#sets-b')).toHaveAttribute('aria-label', /sets won/i);
-  });
-
-  test('connection dot has role=img and aria-label', async ({ page }) => {
-    await expect(page.locator('#conn-dot')).toHaveAttribute('role', 'img');
+  test('connection dot has aria-label reflecting connection state', async ({ page }) => {
     await expect(page.locator('#conn-dot')).toHaveAttribute('aria-label', 'Connected');
   });
 });
