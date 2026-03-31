@@ -4,10 +4,12 @@
   "description": "Real-time volleyball scoreboard — Socket.io locally, Firebase in production",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
-    "deploy": "firebase deploy",
-    "test":   "playwright test"
+    "start":             "node server.js",
+    "dev":               "node --watch server.js",
+    "deploy":            "firebase deploy",
+    "deploy:cloudflare": "wrangler deploy",
+    "cf:dev":            "wrangler dev",
+    "test":              "playwright test"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -15,7 +17,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "firebase-tools": "^13.10.2"
+    "firebase-tools": "^15.12.0",
+    "wrangler": "^4.78.0"
   },
   "engines": {
     "node": ">=18"
