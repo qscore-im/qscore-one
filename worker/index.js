@@ -26,7 +26,10 @@ export default {
       return new Response('OK', { status: 200 });
     }
 
-    return new Response('Volleyball Scoreboard Worker', { status: 200 });
+    // Redirect root to display
+    if (url.pathname === '/') {
+      return Response.redirect(url.origin + '/display.html', 302);
+    }
   }
 };
 
