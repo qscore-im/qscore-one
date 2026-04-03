@@ -17,8 +17,7 @@ export default {
 
     // WebSocket endpoint
     if (url.pathname === '/ws') {
-      const id   = env.SCOREBOARD.idFromName('global');
-      const stub = env.SCOREBOARD.get(id);
+      const stub = env.SCOREBOARD.getByName('global');
       return stub.fetch(request);
     }
 
@@ -34,10 +33,9 @@ export default {
 // ── Durable Object ───────────────────────────────────────────────────────────
 
 export class ScoreboardRoom {
-  constructor(state, env) {
-    this.state    = state;
-    this.sessions = new Set();   // active WebSocket connections
-    this.matches  = {};          // in-memory matches map { [id]: matchState }
+  constructor(state, _env) {
+    this.state   = state;
+    this.matches = {};          // in-memory matches map { [id]: matchState }
 
     // Restore persisted matches on cold start
     this.state.blockConcurrencyWhile(async () => {
@@ -54,7 +52,6 @@ export class ScoreboardRoom {
     const pair   = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.state.acceptWebSocket(server);
-    this.sessions.add(server);
 
     // Send current state to newly connected client
     server.send(JSON.stringify({ type: 'matches', data: this.matches }));
@@ -63,7 +60,7 @@ export class ScoreboardRoom {
   }
 
   // Called by the runtime for each incoming WebSocket message
-  async webSocketMessage(ws, message) {
+  async webSocketMessage(_ws, message) {
     let msg;
     try { msg = JSON.parse(message); } catch { return; }
 
@@ -101,18 +98,14 @@ export class ScoreboardRoom {
     this.broadcast({ type: 'matches', data: this.matches });
   }
 
-  webSocketClose(ws) {
-    this.sessions.delete(ws);
-  }
+  webSocketClose(_ws) {}
 
-  webSocketError(ws) {
-    this.sessions.delete(ws);
-  }
+  webSocketError(_ws) {}
 
   broadcast(msg) {
     const text = JSON.stringify(msg);
-    for (const ws of this.sessions) {
-      try { ws.send(text); } catch { this.sessions.delete(ws); }
+    for (const ws of this.state.getWebSockets()) {
+      try { ws.send(text); } catch { /* runtime cleans up closed sockets */ }
     }
   }
 }

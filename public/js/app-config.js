@@ -12,6 +12,6 @@
  *   };
  */
 window.APP_CONFIG = {
-  backend: 'auto',          // 'auto' | 'socketio' | 'firebase' | 'cloudflare'
-  cloudflareWorkerUrl: ''   // required when backend === 'cloudflare'
+  backend: 'cloudflare',
+  cloudflareWorkerUrl: (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws'
 };

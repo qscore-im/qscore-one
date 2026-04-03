@@ -111,12 +111,15 @@
 
     let ws;
     let reconnectTimer;
+    let queue = [];
 
     function connect() {
       ws = new WebSocket(workerUrl);
 
       ws.onopen = () => {
         clearTimeout(reconnectTimer);
+        queue.forEach(msg => ws.send(JSON.stringify(msg)));
+        queue = [];
         notifyConnect();
       };
 
@@ -142,6 +145,8 @@
     function send(msg) {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(msg));
+      } else {
+        queue.push(msg);
       }
     }
 
@@ -158,7 +163,7 @@
       deleteMatch(id)         { send({ type: 'deleteMatch', id }); },
     };
 
-    window.dispatchEvent(new Event('backend:ready'));
+    setTimeout(() => window.dispatchEvent(new Event('backend:ready')), 0);
   }
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────

@@ -1,14 +1,19 @@
-name            = "volleyball-scoreboard"
+name            = "qscore-one"
 main            = "worker/index.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2025-01-01"
 
 [[durable_objects.bindings]]
 name       = "SCOREBOARD"
 class_name = "ScoreboardRoom"
 
 [[migrations]]
-tag            = "v1"
-new_classes    = ["ScoreboardRoom"]
+tag              = "v1"
+new_sqlite_classes = ["ScoreboardRoom"]
 
 [assets]
 directory = "./public"
+
+[observability]
+[observability.logs]
+enabled = false
+invocation_logs = true
