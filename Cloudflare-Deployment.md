@@ -79,7 +79,46 @@ If you want a different worker name, change `name` here before deploying.
 
 ---
 
-## Step 3 — Deploy
+## Step 3 — (Optional) Set up GitHub Actions for automatic deployment
+
+The repo includes `.github/workflows/deploy.yml`, which runs Playwright tests on
+every push and PR to `main`, and deploys to Cloudflare automatically when tests
+pass on a push to `main`.
+
+Two secrets must be added to the GitHub repository before the workflow can deploy.
+
+### Where to add secrets
+
+Go to your GitHub repo → **Settings** → **Secrets and variables** → **Actions**.
+
+These should be added as **Repository secrets** (not environment secrets), so they
+are available to any workflow run on the `main` branch without additional
+environment configuration.
+
+| Secret name | Value | Where to get it |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | A Cloudflare API token with Workers edit permissions | See below |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID | Cloudflare dashboard → right sidebar on any Workers & Pages page |
+
+### Creating the API token
+
+1. Go to [Cloudflare dashboard](https://dash.cloudflare.com) → **My Profile** (top-right avatar) → **API Tokens**
+2. Click **Create Token**
+3. Use the **Edit Cloudflare Workers** template — it grants exactly the permissions Wrangler needs
+4. Under **Account Resources**, select your account
+5. Under **Zone Resources**, select **All zones** (or restrict to the zone your custom domain uses, if any)
+6. Click **Continue to summary** → **Create Token**
+7. Copy the token value — it is shown **only once**. Paste it as the `CLOUDFLARE_API_TOKEN` secret in GitHub.
+
+> **Note on secret scope:** Repository secrets are used here rather than
+> environment secrets because this project does not use GitHub Environments.
+> If you later configure a GitHub Environment (e.g. `production`) with required
+> reviewers or deployment rules, move the secrets there and update the `deploy`
+> job in `deploy.yml` to specify `environment: production`.
+
+---
+
+## Step 4 — Deploy
 
 ```bash
 npm run deploy:cloudflare
