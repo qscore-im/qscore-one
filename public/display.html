@@ -465,6 +465,7 @@
       card.className = 'match-card';
       card.setAttribute('role', 'button');
       card.setAttribute('tabindex', '0');
+      card.dataset.matchId = m.id;
       card.onclick    = () => openMatch(m.id);
       card.onkeydown  = e => { if (e.key === 'Enter' || e.key === ' ') openMatch(m.id); };
 

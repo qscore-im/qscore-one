@@ -169,10 +169,13 @@
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   const cfg = window.APP_CONFIG || {};
 
-  if (cfg.backend === 'cloudflare' && cfg.cloudflareWorkerUrl) {
-    initCloudflare(cfg.cloudflareWorkerUrl);
-  } else if (cfg.backend === 'socketio' || (cfg.backend === 'auto' || !cfg.backend) && isLocal()) {
+  // Local hostnames always use Socket.io regardless of app-config —
+  // this ensures `npm run dev` and `npm test` work even when app-config.js
+  // is configured for Cloudflare or Firebase.
+  if (isLocal()) {
     loadScript('/socket.io/socket.io.js', initSocketIO);
+  } else if (cfg.backend === 'cloudflare' && cfg.cloudflareWorkerUrl) {
+    initCloudflare(cfg.cloudflareWorkerUrl);
   } else {
     // firebase (explicit) or auto-detect non-local
     loadScript(

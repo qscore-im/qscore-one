@@ -316,7 +316,7 @@
     <header class="header">
       <img src="Qscore logo plain.svg" alt="Qscore" class="header-logo">
       <div style="display:flex;align-items:center;gap:10px;">
-        <div class="conn-dot" id="conn-dot" aria-label="Disconnected"></div>
+        <div class="conn-dot" id="conn-dot" role="img" aria-label="Disconnected"></div>
       </div>
     </header>
 
@@ -357,13 +357,15 @@
         <div class="set-badge">SET <span id="set-num">1</span></div>
         <div class="target-info" id="target-label">First to 25 (win by 2)</div>
       </div>
-      <div class="conn-dot" id="conn-dot-scorer" aria-label="Disconnected"></div>
+      <button class="hdr-btn" onclick="toggleServe()" aria-label="Toggle serve">⇄ Serve</button>
+      <div class="conn-dot" id="conn-dot-scorer" role="img" aria-label="Disconnected"></div>
     </header>
 
     <div class="court" id="court">
       <div class="team-panel a" id="panel-a">
         <div class="name-row">
           <div class="serve-pip" aria-hidden="true"></div>
+          <span class="sr-only" id="serve-a"></span>
           <button class="team-name-lbl" id="name-a" onclick="editName('A')" aria-label="Team A — tap to edit name">TEAM A</button>
         </div>
         <div class="score-num" id="score-a" aria-label="Team A score: 0">0</div>
@@ -375,6 +377,7 @@
       <div class="team-panel b" id="panel-b">
         <div class="name-row">
           <div class="serve-pip" aria-hidden="true"></div>
+          <span class="sr-only" id="serve-b"></span>
           <button class="team-name-lbl" id="name-b" onclick="editName('B')" aria-label="Team B — tap to edit name">TEAM B</button>
         </div>
         <div class="score-num" id="score-b" aria-label="Team B score: 0">0</div>
@@ -556,6 +559,7 @@
       card.className = 'match-card';
       card.setAttribute('role', 'button');
       card.setAttribute('tabindex', '0');
+      card.dataset.matchId = m.id;
       card.onclick = () => openDetail(m.id);
       card.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') openDetail(m.id); };
 
@@ -740,17 +744,25 @@
 
     updateScore('a', s.teamA?.score ?? 0);
     updateScore('b', s.teamB?.score ?? 0);
+    document.getElementById('score-a').setAttribute('aria-label', `${s.teamA?.name} score: ${s.teamA?.score ?? 0}`);
+    document.getElementById('score-b').setAttribute('aria-label', `${s.teamB?.name} score: ${s.teamB?.score ?? 0}`);
+    document.querySelector('#panel-a .btn-plus').setAttribute('aria-label',  `Add point for ${s.teamA?.name}`);
+    document.querySelector('#panel-a .btn-minus').setAttribute('aria-label', `Remove point from ${s.teamA?.name}`);
+    document.querySelector('#panel-b .btn-plus').setAttribute('aria-label',  `Add point for ${s.teamB?.name}`);
+    document.querySelector('#panel-b .btn-minus').setAttribute('aria-label', `Remove point from ${s.teamB?.name}`);
 
     const servingA = s.serving === 'A';
     document.getElementById('panel-a').className = 'team-panel a' + (servingA ? ' serving' : '');
     document.getElementById('panel-b').className = 'team-panel b' + (!servingA ? ' serving' : '');
+    document.getElementById('serve-a').textContent = servingA ? '(serving)' : '';
+    document.getElementById('serve-b').textContent = !servingA ? '(serving)' : '';
     document.getElementById('court').classList.toggle('swapped', !!s.sidesSwapped);
     document.getElementById('set-num').textContent  = s.currentSet ?? 1;
     document.getElementById('target-label').textContent =
       (s.currentSet ?? 1) >= 5 ? 'Deciding set — first to 15' : 'First to 25 (win by 2)';
 
-    renderScorerPips('sets-a', s.teamA?.sets ?? 0);
-    renderScorerPips('sets-b', s.teamB?.sets ?? 0);
+    renderScorerPips('sets-a', s.teamA?.sets ?? 0, s.teamA?.name || 'Team A');
+    renderScorerPips('sets-b', s.teamB?.sets ?? 0, s.teamB?.name || 'Team B');
 
     const hist = s.setHistory || [];
     document.getElementById('hist-a').textContent = hist.map(h => h.a).join('  ') || '';
@@ -772,8 +784,9 @@
     el.textContent = val;
   }
 
-  function renderScorerPips(id, filled) {
+  function renderScorerPips(id, filled, teamName) {
     const el = document.getElementById(id);
+    el.setAttribute('aria-label', `${teamName} sets won: ${filled}`);
     el.innerHTML = '';
     for (let i = 0; i < SETS_TO_WIN; i++) {
       const pip = document.createElement('div');
@@ -828,6 +841,7 @@
     input.className = 'name-input';
     input.value = current;
     input.maxLength = 20;
+    input.setAttribute('aria-label', `Team ${team} name`);
     nameEl.replaceWith(input);
     input.select();
 
@@ -847,6 +861,12 @@
       if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
       if (e.key === 'Escape') { input.value = current; input.blur(); }
     });
+  }
+
+  function toggleServe() {
+    if (!matchState) return;
+    backend.updateMatch(activeId, { serving: matchState.serving === 'A' ? 'B' : 'A' });
+    showToast('Serve switched');
   }
 
   function swapTeams() {

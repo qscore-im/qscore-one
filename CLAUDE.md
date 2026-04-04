@@ -19,7 +19,11 @@ volleyball-scoreboard/
 ├── CLAUDE.md
 ├── README.md
 ├── tests/
-│   └── scoreboard.spec.js     # Playwright regression tests
+│   ├── helpers.js                       # Shared test helpers and fixtures
+│   ├── scorekeeper.spec.js              # Match list, initial state, name editing, swap
+│   ├── scoring.spec.js                  # Scoring, serve toggle, set and match rules
+│   ├── display-sync.spec.js             # Real-time sync scorekeeper → display
+│   └── scorekeeper-accessibility.spec.js # ARIA attributes and accessible interactions
 └── public/                    # All files served to browsers
     ├── scorekeeper.html        # Mobile scoring UI
     ├── display.html            # TV scoreboard display
@@ -236,7 +240,9 @@ The **⇄ Swap** button in the scorekeeper footer writes `sidesSwapped: true/fal
 ```bash
 npm test
 ```
-Playwright starts the server automatically on port 3001. Tests are in `tests/scoreboard.spec.js` and cover scoring logic, volleyball rules, real-time sync between scorekeeper and display, and accessibility attributes. Use `npx playwright test --headed` to watch tests run in a browser.
+Playwright starts the server automatically on port 3000. Tests are split across four files in `tests/`; shared helpers live in `tests/helpers.js`. They cover scoring logic, volleyball rules, real-time sync between scorekeeper and display, and accessibility attributes. Use `npx playwright test --headed` to watch tests run in a browser.
+
+**Note for name-editing tests:** Playwright's `page.click()` includes real mouse events that trigger Chromium's focus management (mousedown→focus→blur race when the clicked element is replaced in the DOM). Name-editing tests use `page.locator('#name-a').dispatchEvent('click')` instead, which fires only the JavaScript click event without focus side-effects.
 
 ### Test Firebase backend locally
 Temporarily change `isLocal()` in `backend.js` to `return false`. Remember to revert.

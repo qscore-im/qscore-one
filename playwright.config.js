@@ -8,14 +8,14 @@ module.exports = defineConfig({
   reporter: 'list',
 
   webServer: {
-    command: 'PORT=3001 node server.js',
-    port: 3001,
+    command: 'PORT=3000 node server.js',
+    port: 3000,
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
   },
 
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:3000',
     headless: true,
   },
 
