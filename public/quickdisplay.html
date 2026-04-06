@@ -193,7 +193,7 @@
 
     <header class="top-bar">
       <a href="/display.html">
-        <img src="Qscore logo plain.svg" alt="Qscore" class="top-logo" title="All matches">
+        <img src="qscore-logo-plain.svg" alt="Qscore" class="top-logo" title="All matches">
       </a>
       <div class="top-bar-center">Enter Code</div>
     </header>
@@ -217,7 +217,7 @@
 
     <header class="top-bar">
       <a href="/display.html">
-        <img src="Qscore logo plain.svg" alt="Qscore" class="top-logo" title="All matches">
+        <img src="qscore-logo-plain.svg" alt="Qscore" class="top-logo" title="All matches">
       </a>
       <div class="top-bar-center" id="set-label">SET 1</div>
       <button class="btn-flip" id="btn-flip" onclick="toggleLocalSwap()" aria-label="Flip team sides">⇄ Flip</button>
@@ -283,7 +283,7 @@
 
   <!-- ══ WAITING SCREEN ════════════════════════════════════════════════════ -->
   <div class="no-signal" id="no-signal">
-    <img class="no-signal-icon" src="Qscore logo mounted 512px.png" alt="" aria-hidden="true">
+    <img class="no-signal-icon" src="qscore-logo-mounted-512px.png" alt="" aria-hidden="true">
     <div class="no-signal-text" id="no-signal-text">Waiting for match data…</div>
   </div>
 
@@ -394,7 +394,7 @@
     el.innerHTML = '';
     for (let i = 0; i < SETS_TO_WIN; i++) {
       const pip = document.createElement('img');
-      pip.src = i < filled ? 'Qscore logo plain.svg' : 'Qscore logo outline.svg';
+      pip.src = i < filled ? 'qscore-logo-plain.svg' : 'qscore-logo-outline.svg';
       pip.alt = '';
       pip.className = 'set-pip' + (i < filled ? ' won' : '');
       pip.setAttribute('aria-hidden', 'true');

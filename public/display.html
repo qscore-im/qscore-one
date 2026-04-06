@@ -229,7 +229,7 @@
   <div id="view-list" class="view active">
 
     <header class="top-bar">
-      <img src="Qscore logo plain.svg" alt="Qscore" class="top-logo" onclick="goToList()" title="Qscore">
+      <img src="qscore-logo-plain.svg" alt="Qscore" class="top-logo" onclick="goToList()" title="Qscore">
       <div class="top-bar-center">Matches</div>
     </header>
 
@@ -261,7 +261,7 @@
       <div id="match-list"></div>
 
       <div class="list-empty" id="list-empty" style="display:none;">
-        <img class="empty-icon" src="Qscore logo mounted 512px.png" alt="">
+        <img class="empty-icon" src="qscore-logo-mounted-512px.png" alt="">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;letter-spacing:0.15em;text-transform:uppercase;color:var(--dim);">Waiting for matches…</div>
       </div>
 
@@ -272,7 +272,7 @@
   <div id="view-score" class="view">
 
     <header class="top-bar">
-      <img src="Qscore logo plain.svg" alt="Qscore" class="top-logo" onclick="goToList()" title="Back to matches">
+      <img src="qscore-logo-plain.svg" alt="Qscore" class="top-logo" onclick="goToList()" title="Back to matches">
       <div class="top-bar-center" id="set-label">SET 1</div>
       <button class="btn-flip" id="btn-flip" onclick="toggleLocalSwap()" aria-label="Flip team sides">⇄ Flip</button>
     </header>
@@ -337,7 +337,7 @@
 
   <!-- ══ WAITING SCREEN (shown until first match selected) ══════════════════ -->
   <div class="no-signal" id="no-signal">
-    <img class="no-signal-icon" src="Qscore logo mounted 512px.png" alt="" aria-hidden="true">
+    <img class="no-signal-icon" src="qscore-logo-mounted-512px.png" alt="" aria-hidden="true">
     <div class="no-signal-text">Waiting for match data…</div>
   </div>
 
@@ -541,7 +541,7 @@
     el.innerHTML = '';
     for (let i = 0; i < SETS_TO_WIN; i++) {
       const pip = document.createElement('img');
-      pip.src = i < filled ? 'Qscore logo plain.svg' : 'Qscore logo outline.svg';
+      pip.src = i < filled ? 'qscore-logo-plain.svg' : 'qscore-logo-outline.svg';
       pip.alt = '';
       pip.className = 'set-pip' + (i < filled ? ' won' : '');
       pip.setAttribute('aria-hidden', 'true');
