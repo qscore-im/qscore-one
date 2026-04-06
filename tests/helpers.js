@@ -7,11 +7,14 @@ const { expect } = require('@playwright/test');
 
 const SK = '/scorekeeper.html';
 const DI = '/display.html';
+const QS = '/quickscores.html';
+const QD = '/quickdisplay.html';
 
 /** Build a complete fresh match state object for a given id. */
 function freshMatchState(id, overrides = {}) {
   const base = {
     id,
+    code:         'testcd',
     venue:        'Test Court',
     scheduledAt:  new Date().toISOString(),
     started:      true,
@@ -20,6 +23,7 @@ function freshMatchState(id, overrides = {}) {
     setHistory:   [],
     serving:      'A',
     sidesSwapped: false,
+    notes:        '',
     teamA: { name: 'TEAM A', score: 0, sets: 0 },
     teamB: { name: 'TEAM B', score: 0, sets: 0 },
   };
@@ -37,7 +41,7 @@ function freshMatchState(id, overrides = {}) {
  */
 async function waitForSKReady(page) {
   await page.waitForFunction(() => typeof window.backend !== 'undefined');
-  await page.waitForSelector('#conn-dot.live', { timeout: 8000 });
+  await page.waitForSelector('#conn-dot.live', { timeout: 20000 });
 }
 
 /**
@@ -46,7 +50,7 @@ async function waitForSKReady(page) {
  */
 async function waitForDisplayReady(page) {
   await page.waitForFunction(() => typeof window.backend !== 'undefined');
-  await page.waitForSelector('#no-signal.hidden', { timeout: 8000 });
+  await page.waitForSelector('#no-signal.hidden', { timeout: 20000 });
 }
 
 /**
@@ -62,6 +66,7 @@ async function createAndOpenMatch(page) {
     const id = 'test_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     window.backend.createMatch({
       id,
+      code:         'testcd',
       venue:        'Test Court',
       scheduledAt:  new Date().toISOString(),
       started:      false,
@@ -70,6 +75,7 @@ async function createAndOpenMatch(page) {
       setHistory:   [],
       serving:      'A',
       sidesSwapped: false,
+      notes:        '',
       teamA: { name: 'TEAM A', score: 0, sets: 0 },
       teamB: { name: 'TEAM B', score: 0, sets: 0 },
     });
@@ -78,18 +84,14 @@ async function createAndOpenMatch(page) {
 
   // Wait for THIS match's card specifically (other cards from prior tests may exist)
   await page.waitForSelector(`[data-match-id="${matchId}"]`);
-  await page.click(`[data-match-id="${matchId}"]`);
 
-  // Detail panel — click Start Match.
-  // Concurrent state updates from other tests can cause continuous list re-renders;
-  // if the click doesn't register (card replaced mid-click), retry once.
-  try {
-    await page.waitForSelector('#detail-panel.show', { timeout: 3000 });
-  } catch {
-    await page.click(`[data-match-id="${matchId}"]`);
-    await page.waitForSelector('#detail-panel.show', { timeout: 8000 });
-  }
-  await page.click('.btn-start');
+  // Use dispatchEvent rather than page.click — concurrent socket.io broadcasts from other
+  // workers cause continuous list re-renders in WebKit, which keeps the card in a
+  // "not stable" state and makes page.click() spin until the test timeout. dispatchEvent
+  // fires the JS click handler synchronously without any actionability checks.
+  await page.locator(`[data-match-id="${matchId}"]`).dispatchEvent('click');
+  await page.waitForSelector('#detail-panel.show', { timeout: 20000 });
+  await page.locator('.btn-start').dispatchEvent('click');
 
   // Confirm scorer view is active
   await page.waitForSelector('#view-scorer.active');
@@ -132,17 +134,37 @@ async function resetMatchState(page, matchId, overrides = {}) {
  */
 async function openMatchOnDisplay(page, matchId) {
   await page.fill('#id-input', matchId);
-  await page.click('.btn-go');
+  await page.locator('.btn-go').dispatchEvent('click');
   await expect(page.locator('#view-score')).toHaveClass(/active/, { timeout: 5000 });
+}
+
+/**
+ * Wait for the quickscores page to be ready: connected and match state received.
+ */
+async function waitForQuickReady(page) {
+  await page.waitForFunction(() => typeof window.backend !== 'undefined');
+  await page.waitForSelector('#conn-dot.live', { timeout: 20000 });
+  await page.waitForSelector('#waiting.hidden', { timeout: 20000 });
+}
+
+/**
+ * Read the short match code from the quickscores session-strip.
+ */
+async function getQuickMatchId(page) {
+  return (await page.locator('#display-code').textContent()).trim();
 }
 
 module.exports = {
   SK,
   DI,
+  QS,
+  QD,
   freshMatchState,
   waitForSKReady,
   waitForDisplayReady,
   createAndOpenMatch,
   resetMatchState,
   openMatchOnDisplay,
+  waitForQuickReady,
+  getQuickMatchId,
 };

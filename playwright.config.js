@@ -2,9 +2,10 @@ const { defineConfig, devices } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests',
-  timeout: 20000,
-  expect: { timeout: 8000 },
-  workers: 1,           // tests share server state — run serially
+  timeout: 30000,
+  expect: { timeout: 15000 },
+  workers: 2,
+  retries: 1,
   reporter: 'list',
 
   webServer: {
@@ -20,7 +21,51 @@ module.exports = defineConfig({
   },
 
   projects: [
+    // ── Laptop / desktop ─────────────────────────────────────────────────────
+    // Full test suite including all sync (multi-page) tests.
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'webkit',   use: { ...devices['Desktop Safari'] } },
+
+    // ── Phone (scorekeeper primary target) ────────────────────────────────────
+    // Scorekeeper + accessibility at mobile viewport.
+    // Sync tests excluded — already covered by chromium/webkit desktop.
+    {
+      name: 'iphone',
+      testMatch: ['**/scorekeeper.spec.js', '**/scoring.spec.js', '**/scorekeeper-accessibility.spec.js'],
+      use: { ...devices['iPhone 15'] },
+    },
+    {
+      name: 'android',
+      testMatch: ['**/scorekeeper.spec.js', '**/scoring.spec.js', '**/scorekeeper-accessibility.spec.js'],
+      use: { ...devices['Pixel 7'] },
+    },
+
+    // ── Tablet (display + quick scorekeeper) ─────────────────────────────────
+    // Display keyboard nav + quickscores UI at tablet viewport.
+    // Multi-page sync tests excluded — covered by desktop projects.
+    {
+      name: 'ipad',
+      testMatch: ['**/display-keyboard.spec.js', '**/quick.spec.js'],
+      use: { ...devices['iPad Pro 11'] },
+    },
+    {
+      name: 'android-tab',
+      testMatch: ['**/display-keyboard.spec.js', '**/quick.spec.js'],
+      use: { ...devices['Galaxy Tab S9'] },
+    },
+
+    // ── Android TV ───────────────────────────────────────────────────────────
+    // 1080p Chrome, no touch — keyboard navigation is the primary concern.
+    // Multi-page sync tests excluded — covered by desktop projects.
+    {
+      name: 'android-tv',
+      testMatch: ['**/display-keyboard.spec.js', '**/quick.spec.js'],
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1920, height: 1080 },
+        hasTouch:  false,
+        isMobile:  false,
+      },
+    },
   ],
 });

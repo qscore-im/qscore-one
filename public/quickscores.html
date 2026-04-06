@@ -360,12 +360,14 @@
   function freshState() {
     return {
       id:           matchId,
+      code:         matchId,
       started:      true,
       matchOver:    false,
       currentSet:   1,
       setHistory:   [],
       serving:      'A',
       sidesSwapped: false,
+      notes:        '',
       teamA: { name: 'TEAM A', score: 0, sets: 0 },
       teamB: { name: 'TEAM B', score: 0, sets: 0 },
     };

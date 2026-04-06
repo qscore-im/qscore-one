@@ -335,7 +335,7 @@
         <option value="time-desc">Newest first</option>
         <option value="time-asc">Oldest first</option>
       </select>
-      <input class="filter-input" id="filter-text" type="search" placeholder="Search team or venue…" oninput="applyFilters()">
+      <input class="filter-input" id="filter-text" type="search" placeholder="Search team, venue, code, notes…" oninput="applyFilters()">
     </div>
 
     <div class="match-list" id="match-list">
@@ -401,6 +401,7 @@
       <div class="detail-title" id="detail-title">Match</div>
       <div class="detail-scores" id="detail-scores">0 : 0</div>
       <div class="detail-meta" id="detail-meta"></div>
+      <textarea id="detail-notes" class="field-input" rows="2" maxlength="200" placeholder="Notes…" style="resize:vertical;font-size:13px;" oninput="saveDetailNotes()" aria-label="Match notes"></textarea>
       <div class="detail-btns" id="detail-btns"></div>
       <button class="detail-btn btn-cancel" onclick="closeDetail()">Cancel</button>
     </div>
@@ -425,6 +426,10 @@
       <div class="field-group">
         <label class="field-label" for="inp-time">Date &amp; Time</label>
         <input class="field-input" id="inp-time" type="datetime-local">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="inp-notes">Notes</label>
+        <textarea class="field-input" id="inp-notes" rows="2" maxlength="200" placeholder="Division, court, referee…" style="resize:vertical;"></textarea>
       </div>
       <div class="dialog-btns">
         <button class="btn-dialog-cancel" onclick="closeNewMatchDialog()">Cancel</button>
@@ -451,6 +456,14 @@
   <script>
   /* ── Constants ─────────────────────────────────────────────────── */
   const SETS_TO_WIN = 3;
+
+  /* ── ID helpers ─────────────────────────────────────────────────── */
+  function genCode() {
+    const chars = 'abcdefghjkmnpqrstuvwxyz'; // drop i, l, o (ambiguous)
+    let c = '';
+    for (let i = 0; i < 5; i++) c += chars[Math.floor(Math.random() * chars.length)];
+    return c;
+  }
 
   /* ── State ─────────────────────────────────────────────────────── */
   let allMatches   = {};   // id → matchState (from backend)
@@ -523,7 +536,9 @@
     if (textF)    list = list.filter(m =>
       m.teamA?.name?.toLowerCase().includes(textF) ||
       m.teamB?.name?.toLowerCase().includes(textF) ||
-      m.venue?.toLowerCase().includes(textF)
+      m.venue?.toLowerCase().includes(textF) ||
+      m.notes?.toLowerCase().includes(textF) ||
+      m.code?.toLowerCase().includes(textF)
     );
 
     list.sort((a, b) => {
@@ -576,9 +591,11 @@
           <div>
             <div class="match-teams">${esc(m.teamA?.name || 'Team A')} vs ${esc(m.teamB?.name || 'Team B')}</div>
             <div class="match-meta">
+              ${m.code ? `<span style="font-family:'IBM Plex Mono',monospace;letter-spacing:0.12em;">${esc(m.code)}</span>` : ''}
               <span>${esc(m.venue || '')}</span>
               <span>${formatDT(m.scheduledAt)}</span>
             </div>
+            ${m.notes ? `<div class="match-meta" style="margin-top:3px;font-style:italic;">${esc(m.notes)}</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
             <div class="match-set-score">${setScore(m)}</div>
@@ -606,10 +623,14 @@
 
     const meta = document.getElementById('detail-meta');
     meta.innerHTML = `
+      ${m.code ? `<span>Code: <strong style="font-family:'IBM Plex Mono',monospace;letter-spacing:0.12em;">${esc(m.code)}</strong></span>` : ''}
       <span>📍 ${esc(m.venue || 'Unknown venue')}</span>
       <span>🕐 ${formatDT(m.scheduledAt)}</span>
-      <span>ID: ${esc(id)}</span>
     `;
+
+    const notesEl = document.getElementById('detail-notes');
+    notesEl.value = m.notes || '';
+    notesEl.dataset.matchId = id;
 
     const btns = document.getElementById('detail-btns');
     btns.innerHTML = '';
@@ -642,6 +663,17 @@
     document.getElementById('detail-panel').classList.remove('show');
   }
 
+  let notesTimer = null;
+  function saveDetailNotes() {
+    const el = document.getElementById('detail-notes');
+    const id = el.dataset.matchId;
+    if (!id) return;
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(() => {
+      backend.updateMatch(id, { notes: el.value.trim() });
+    }, 600);
+  }
+
   /* ── New Match dialog ────────────────────────────────────────────── */
   function openNewMatchDialog() {
     const now = new Date();
@@ -652,6 +684,7 @@
     document.getElementById('inp-venue').value  = 'Here';
     document.getElementById('inp-team-a').value = 'Team A';
     document.getElementById('inp-team-b').value = 'Team B';
+    document.getElementById('inp-notes').value  = '';
     document.getElementById('dialog-new').classList.add('show');
     document.getElementById('inp-venue').focus();
   }
@@ -666,13 +699,17 @@
     const teamB   = document.getElementById('inp-team-b').value.trim().toUpperCase() || 'TEAM B';
     const timeVal = document.getElementById('inp-time').value;
     const scheduledAt = timeVal ? new Date(timeVal).toISOString() : new Date().toISOString();
+    const notes   = document.getElementById('inp-notes').value.trim();
 
-    const id = `match_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    const id   = `match_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    const code = genCode();
 
     const matchData = {
       id,
+      code,
       venue,
       scheduledAt,
+      notes,
       started:    false,
       matchOver:  false,
       currentSet: 1,

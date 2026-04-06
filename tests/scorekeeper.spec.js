@@ -155,6 +155,132 @@ test.describe('Scorekeeper — team name editing', () => {
   });
 });
 
+// ── Scorekeeper: code and notes ───────────────────────────────────────────────
+
+test.describe('Scorekeeper — code and notes', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(SK);
+    await waitForSKReady(page);
+  });
+
+  test('New Match dialog has a notes field', async ({ page }) => {
+    await page.click('[aria-label="New match"]');
+    await expect(page.locator('#inp-notes')).toBeVisible();
+  });
+
+  test('creating a match stores a 5-char alpha code on the card', async ({ page }) => {
+    await page.click('[aria-label="New match"]');
+    await page.fill('#inp-team-a', 'CODE FC');
+    await page.click('.btn-create');
+    const card = page.locator('.match-card').filter({ hasText: 'CODE FC' }).first();
+    await expect(card).toBeVisible();
+    // The code is rendered in monospace — grab the full card text and check for 5 lowercase letters
+    const text = await card.textContent();
+    expect(text).toMatch(/[a-z]{5}/);
+  });
+
+  test('notes entered in dialog appear on the match card', async ({ page }) => {
+    await page.click('[aria-label="New match"]');
+    await page.fill('#inp-team-a', 'NOTES SIDE A');
+    await page.fill('#inp-notes', 'Court 4 division 2');
+    await page.click('.btn-create');
+    await expect(
+      page.locator('.match-card').filter({ hasText: 'Court 4 division 2' }).first()
+    ).toBeVisible();
+  });
+
+  test('text search filters matches by notes', async ({ page }) => {
+    await page.click('[aria-label="New match"]');
+    await page.fill('#inp-team-a', 'ALPHA SQUAD');
+    await page.fill('#inp-notes', 'premier league');
+    await page.click('.btn-create');
+
+    await page.click('[aria-label="New match"]');
+    await page.fill('#inp-team-a', 'BETA SQUAD');
+    await page.fill('#inp-notes', 'junior division');
+    await page.click('.btn-create');
+
+    await page.fill('#filter-text', 'premier');
+    await expect(page.locator('.match-card').filter({ hasText: 'ALPHA SQUAD' }).first()).toBeVisible();
+    await expect(page.locator('.match-card').filter({ hasText: 'BETA SQUAD' })).toHaveCount(0);
+  });
+
+  test('text search filters matches by code', async ({ page }) => {
+    // Inject a match with a known code directly via backend
+    const id = await page.evaluate(() => {
+      const mid = 'test_code_' + Date.now();
+      window.backend.createMatch({
+        id: mid, code: 'zzzqq',
+        venue: 'Test Court', scheduledAt: new Date().toISOString(),
+        started: false, matchOver: false, currentSet: 1, setHistory: [],
+        serving: 'A', sidesSwapped: false, notes: '',
+        teamA: { name: 'CODE SEARCH TEAM', score: 0, sets: 0 },
+        teamB: { name: 'OTHER SIDE', score: 0, sets: 0 },
+      });
+      return mid;
+    });
+    await page.waitForSelector(`[data-match-id="${id}"]`);
+
+    await page.fill('#filter-text', 'zzzqq');
+    await expect(page.locator(`[data-match-id="${id}"]`)).toBeVisible();
+  });
+
+  test('detail panel shows the match code', async ({ page }) => {
+    const id = await page.evaluate(() => {
+      const mid = 'test_det_' + Date.now();
+      window.backend.createMatch({
+        id: mid, code: 'abcde',
+        venue: 'Test Court', scheduledAt: new Date().toISOString(),
+        started: false, matchOver: false, currentSet: 1, setHistory: [],
+        serving: 'A', sidesSwapped: false, notes: '',
+        teamA: { name: 'DETAIL A', score: 0, sets: 0 },
+        teamB: { name: 'DETAIL B', score: 0, sets: 0 },
+      });
+      return mid;
+    });
+    await page.waitForSelector(`[data-match-id="${id}"]`);
+    await page.click(`[data-match-id="${id}"]`);
+    try {
+      await page.waitForSelector('#detail-panel.show', { timeout: 3000 });
+    } catch {
+      await page.click(`[data-match-id="${id}"]`);
+      await page.waitForSelector('#detail-panel.show', { timeout: 20000 });
+    }
+    await expect(page.locator('#detail-meta')).toContainText('abcde');
+  });
+
+  test('notes edited in detail panel are saved to the backend', async ({ page }) => {
+    const id = await page.evaluate(() => {
+      const mid = 'test_notedit_' + Date.now();
+      window.backend.createMatch({
+        id: mid, code: 'xyzab',
+        venue: 'Test Court', scheduledAt: new Date().toISOString(),
+        started: false, matchOver: false, currentSet: 1, setHistory: [],
+        serving: 'A', sidesSwapped: false, notes: '',
+        teamA: { name: 'EDIT NOTES A', score: 0, sets: 0 },
+        teamB: { name: 'EDIT NOTES B', score: 0, sets: 0 },
+      });
+      return mid;
+    });
+    await page.waitForSelector(`[data-match-id="${id}"]`);
+    await page.click(`[data-match-id="${id}"]`);
+    try {
+      await page.waitForSelector('#detail-panel.show', { timeout: 3000 });
+    } catch {
+      await page.click(`[data-match-id="${id}"]`);
+      await page.waitForSelector('#detail-panel.show', { timeout: 20000 });
+    }
+
+    await page.fill('#detail-notes', 'Referee: Jones');
+    // Close the panel — the 600ms debounce will have fired or fire now,
+    // then the backend round-trip will re-render the card with the notes text.
+    await page.click('.btn-cancel');
+    await expect(
+      page.locator(`[data-match-id="${id}"]`).filter({ hasText: 'Referee: Jones' })
+    ).toBeVisible({ timeout: 5000 });
+  });
+});
+
 // ── Scorekeeper: swap teams ───────────────────────────────────────────────────
 
 test.describe('Scorekeeper — swap teams', () => {
@@ -172,6 +298,7 @@ test.describe('Scorekeeper — swap teams', () => {
 
   test('swapping twice returns to original layout', async ({ page }) => {
     await page.click('[aria-label="Swap team sides"]');
+    await expect(page.locator('#court')).toHaveClass(/swapped/);  // wait for round-trip
     await page.click('[aria-label="Swap team sides"]');
     await expect(page.locator('#court')).not.toHaveClass(/swapped/);
   });

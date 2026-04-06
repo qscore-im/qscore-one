@@ -250,7 +250,7 @@
           <option value="time-desc">Newest first</option>
           <option value="time-asc">Oldest first</option>
         </select>
-        <input class="filter-input" id="filter-text" type="search" placeholder="Search team or venue…" oninput="applyFilters()">
+        <input class="filter-input" id="filter-text" type="search" placeholder="Search team, venue, code, notes…" oninput="applyFilters()">
       </div>
 
       <div class="id-lookup">
@@ -441,7 +441,9 @@
     if (textF)           list = list.filter(m =>
       m.teamA?.name?.toLowerCase().includes(textF) ||
       m.teamB?.name?.toLowerCase().includes(textF) ||
-      m.venue?.toLowerCase().includes(textF)
+      m.venue?.toLowerCase().includes(textF) ||
+      m.notes?.toLowerCase().includes(textF) ||
+      m.code?.toLowerCase().includes(textF)
     );
     list.sort((a, b) => {
       const ta = new Date(a.scheduledAt || 0).getTime();
@@ -476,7 +478,8 @@
       card.innerHTML = `
         <div class="mc-left">
           <div class="mc-teams">${esc(m.teamA?.name||'Team A')} vs ${esc(m.teamB?.name||'Team B')}</div>
-          <div class="mc-meta">${esc(m.venue||'')}  ·  ${formatDT(m.scheduledAt)}</div>
+          <div class="mc-meta">${m.code ? `<span style="font-family:monospace;letter-spacing:0.12em;">${esc(m.code)}</span>  ·  ` : ''}${esc(m.venue||'')}  ·  ${formatDT(m.scheduledAt)}</div>
+          ${m.notes ? `<div class="mc-meta" style="font-style:italic;">${esc(m.notes)}</div>` : ''}
         </div>
         <div class="mc-right">
           <div class="mc-set-score">${m.teamA?.sets??0} : ${m.teamB?.sets??0}</div>
