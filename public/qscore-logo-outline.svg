@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Option 4: Outline / Linework — single accent blue on white, no scoreboard -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <filter id="lift" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#3B82F6" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- White background -->
+  <rect width="600" height="600" fill="#FFFFFF"/>
+
+  <!-- ── Q OUTER OCTAGON (light blue fill = ring body) ── -->
+  <path d="M 140,52 L 452,52 L 528,128 L 528,418 L 452,494 L 140,494 L 64,418 L 64,128 Z"
+    fill="#EFF6FF" stroke="#3B82F6" stroke-width="4" stroke-linejoin="round"
+    filter="url(#lift)"/>
+
+  <!-- ── Q INNER COUNTER (white punch-out, creates the ring) ── -->
+  <path d="M 166,143 L 432,143 Q 450,143 450,161 L 450,374 Q 450,392 432,392 L 166,392 Q 148,392 148,374 L 148,161 Q 148,143 166,143 Z"
+    fill="#FFFFFF" stroke="#3B82F6" stroke-width="3"/>
+
+  <!-- ── Q TAIL ── -->
+  <path d="M 432,355 L 462,355 L 548,441 L 548,474 L 504,474 L 418,388 Z"
+    fill="#EFF6FF" stroke="#3B82F6" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- ── PIXEL TAIL — outlined squares fading out ── -->
+  <rect x="551" y="444" width="14" height="14" rx="2" fill="#DBEAFE" stroke="#3B82F6" stroke-width="2"/>
+  <rect x="559" y="462" width="11" height="11" rx="2" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8" opacity="0.80"/>
+  <rect x="544" y="462" width="10" height="10" rx="2" fill="none"    stroke="#3B82F6" stroke-width="1.5" opacity="0.62"/>
+  <rect x="563" y="476" width="7"  height="7"  rx="1" fill="none"    stroke="#3B82F6" stroke-width="1.5" opacity="0.44"/>
+  <rect x="550" y="476" width="7"  height="7"  rx="1" fill="none"    stroke="#3B82F6" stroke-width="1.2" opacity="0.30"/>
+  <rect x="568" y="486" width="5"  height="5"  rx="1" fill="none"    stroke="#3B82F6" stroke-width="1"   opacity="0.18"/>
+
+  <!-- ── DECORATIVE SYMBOLS ── -->
+  <text x="87"  y="196" font-family="'Courier New', monospace" font-size="14" font-weight="bold" fill="#3B82F6" opacity="0.75">×</text>
+  <text x="494" y="163" font-family="'Courier New', monospace" font-size="15" font-weight="bold" fill="#3B82F6" opacity="0.75">#</text>
+  <text x="85"  y="390" font-family="'Courier New', monospace" font-size="14" font-weight="bold" fill="#3B82F6" opacity="0.75">#</text>
+  <text x="503" y="316" font-family="'Courier New', monospace" font-size="13"                    fill="#3B82F6" opacity="0.70">○</text>
+  <text x="206" y="97"  font-family="'Courier New', monospace" font-size="11"                    fill="#3B82F6" opacity="0.55">○</text>
+  <text x="382" y="87"  font-family="'Courier New', monospace" font-size="12"                    fill="#3B82F6" opacity="0.55">×</text>
+
+  <!-- ── SPARKLE ── -->
+  <g transform="translate(558,548)">
+    <polygon points="0,-11 2.6,-2.6 11,0 2.6,2.6 0,11 -2.6,2.6 -11,0 -2.6,-2.6" fill="#93C5FD"/>
+  </g>
+</svg>

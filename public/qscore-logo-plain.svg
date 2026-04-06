@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Option 2: Dark Navy on White — drop shadows replace glow, amber digits retained -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <filter id="q-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#0a1628" flood-opacity="0.28"/>
+    </filter>
+    <filter id="panel-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.55"/>
+    </filter>
+    <!-- Subtle amber glow behind digits only -->
+    <filter id="digit-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- White background -->
+  <rect width="600" height="600" fill="#FFFFFF"/>
+
+  <!-- ── Q RING (outer octagon minus inner counter) ── -->
+  <g filter="url(#q-shadow)">
+    <path fill-rule="evenodd"
+      d="M 140,52 L 452,52 L 528,128 L 528,418 L 452,494 L 140,494 L 64,418 L 64,128 Z
+         M 166,143 L 432,143 Q 450,143 450,161 L 450,374 Q 450,392 432,392 L 166,392 Q 148,392 148,374 L 148,161 Q 148,143 166,143 Z"
+      fill="#1c3560"/>
+
+    <!-- Q tail — solid diagonal bar -->
+    <path d="M 432,355 L 462,355 L 548,441 L 548,474 L 504,474 L 418,388 Z"
+      fill="#1c3560"/>
+  </g>
+
+  <!-- Scoreboard interior background (white counter area, sits behind panels) -->
+  <!-- panels float on the white interior -->
+
+  <!-- ── SCOREBOARD PANELS ── -->
+  <rect x="166" y="208" width="122" height="112" rx="8" fill="#0a1422" filter="url(#panel-shadow)"/>
+  <rect x="310" y="208" width="122" height="112" rx="8" fill="#0a1422" filter="url(#panel-shadow)"/>
+
+  <!-- Panel inset highlight (top edge) -->
+  <line x1="172" y1="213" x2="282" y2="213" stroke="#1e3a6a" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="316" y1="213" x2="426" y2="213" stroke="#1e3a6a" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Panel border -->
+  <rect x="166" y="208" width="122" height="112" rx="8" fill="none" stroke="#243e72" stroke-width="1.5"/>
+  <rect x="310" y="208" width="122" height="112" rx="8" fill="none" stroke="#243e72" stroke-width="1.5"/>
+
+  <!-- ── DIGITS ── -->
+  <text x="227" y="268" font-family="'Courier New', Courier, monospace" font-size="52" font-weight="bold"
+        fill="#F5A623" text-anchor="middle" dominant-baseline="middle"
+        filter="url(#digit-glow)">24</text>
+  <text x="371" y="268" font-family="'Courier New', Courier, monospace" font-size="52" font-weight="bold"
+        fill="#F5A623" text-anchor="middle" dominant-baseline="middle"
+        filter="url(#digit-glow)">23</text>
+
+  <!-- Colon -->
+  <text x="298" y="262" font-family="'Courier New', Courier, monospace" font-size="38" font-weight="bold"
+        fill="#F5A623" text-anchor="middle" dominant-baseline="middle"
+        filter="url(#digit-glow)">:</text>
+
+  <!-- ── PIXEL TAIL SCATTER ── -->
+  <rect x="552" y="444" width="13" height="13" fill="#1c3560" opacity="0.72"/>
+  <rect x="559" y="461" width="10" height="10" fill="#1c3560" opacity="0.52"/>
+  <rect x="544" y="461" width="9"  height="9"  fill="#1c3560" opacity="0.40"/>
+  <rect x="563" y="474" width="7"  height="7"  fill="#1c3560" opacity="0.28"/>
+  <rect x="549" y="473" width="7"  height="7"  fill="#1c3560" opacity="0.22"/>
+  <rect x="567" y="484" width="5"  height="5"  fill="#1c3560" opacity="0.15"/>
+
+  <!-- ── DECORATIVE SYMBOLS on Q body ── -->
+  <text x="87"  y="196" font-family="'Courier New', monospace" font-size="14" font-weight="bold" fill="#3a6499" opacity="0.85">×</text>
+  <text x="494" y="163" font-family="'Courier New', monospace" font-size="15" font-weight="bold" fill="#3a6499" opacity="0.85">#</text>
+  <text x="85"  y="390" font-family="'Courier New', monospace" font-size="14" font-weight="bold" fill="#3a6499" opacity="0.85">#</text>
+  <text x="503" y="316" font-family="'Courier New', monospace" font-size="13"                    fill="#3a6499" opacity="0.80">○</text>
+  <text x="206" y="97"  font-family="'Courier New', monospace" font-size="11"                    fill="#3a6499" opacity="0.65">○</text>
+  <text x="382" y="87"  font-family="'Courier New', monospace" font-size="12"                    fill="#3a6499" opacity="0.65">×</text>
+  <!-- small corner markers on panel areas -->
+  <rect x="166" y="208" width="5" height="5" rx="1" fill="#2d5494" opacity="0.6"/>
+  <rect x="283" y="208" width="5" height="5" rx="1" fill="#2d5494" opacity="0.6"/>
+  <rect x="310" y="208" width="5" height="5" rx="1" fill="#2d5494" opacity="0.6"/>
+  <rect x="427" y="208" width="5" height="5" rx="1" fill="#2d5494" opacity="0.6"/>
+
+  <!-- ── SPARKLE (bottom-right corner) ── -->
+  <g transform="translate(558,548)">
+    <polygon points="0,-11 2.6,-2.6 11,0 2.6,2.6 0,11 -2.6,2.6 -11,0 -2.6,-2.6" fill="#8aabcc"/>
+  </g>
+</svg>
