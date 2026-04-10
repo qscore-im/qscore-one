@@ -1,8 +1,8 @@
 // tests/quick.spec.js
 // Tests for quickscores.html (quick scorekeeper) and quickdisplay.html (quick display).
 
-const { test, expect } = require('@playwright/test');
-const { QS, QD, waitForQuickReady, getQuickMatchId } = require('./helpers');
+import { test, expect } from '@playwright/test';
+import { QS, QD, waitForQuickReady, getQuickMatchId } from './helpers';
 
 // ── quickscores: session setup ────────────────────────────────────────────────
 
@@ -258,4 +258,3 @@ test.describe('quickdisplay — scoreboard view', () => {
     await ctx.close();
   });
 });
-

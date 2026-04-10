@@ -1,12 +1,12 @@
 // tests/scorekeeper.spec.js
 // Scorekeeper UI tests: match list, initial state, team name editing, swap teams.
 
-const { test, expect } = require('@playwright/test');
-const {
+import { test, expect } from '@playwright/test';
+import {
   SK, DI,
   waitForSKReady, waitForDisplayReady,
   createAndOpenMatch,
-} = require('./helpers');
+} from './helpers';
 
 // ── Scorekeeper: match list ───────────────────────────────────────────────────
 
