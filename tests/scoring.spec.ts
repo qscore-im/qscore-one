@@ -1,13 +1,13 @@
 // tests/scoring.spec.js
 // Scoring logic tests: points, serve toggle, set and match rules.
 
-const { test, expect } = require('@playwright/test');
-const {
+import { test, expect } from '@playwright/test';
+import {
   SK,
   waitForSKReady,
   createAndOpenMatch,
   resetMatchState,
-} = require('./helpers');
+} from './helpers';
 
 // ── Scorekeeper: initial state ────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ test.describe('Scorekeeper — initial state', () => {
 // ── Scorekeeper: scoring ──────────────────────────────────────────────────────
 
 test.describe('Scorekeeper — scoring', () => {
-  let matchId;
+  let matchId: string;
 
   test.beforeEach(async ({ page }) => {
     await page.goto(SK);
@@ -116,7 +116,7 @@ test.describe('Scorekeeper — serve toggle', () => {
 // ── Scorekeeper: set and match logic ──────────────────────────────────────────
 
 test.describe('Scorekeeper — set logic', () => {
-  let matchId;
+  let matchId: string;
 
   test.beforeEach(async ({ page }) => {
     await page.goto(SK);

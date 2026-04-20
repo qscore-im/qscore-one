@@ -1,10 +1,10 @@
-const { defineConfig, devices } = require('@playwright/test');
+import { defineConfig, devices } from '@playwright/test';
 
-module.exports = defineConfig({
+export default defineConfig({
   testDir: './tests',
   timeout: 30000,
   expect: { timeout: 15000 },
-  workers: 2,
+  workers: 4,
   retries: 1,
   reporter: 'list',
 
@@ -31,12 +31,12 @@ module.exports = defineConfig({
     // Sync tests excluded — already covered by chromium/webkit desktop.
     {
       name: 'iphone',
-      testMatch: ['**/scorekeeper.spec.js', '**/scoring.spec.js', '**/scorekeeper-accessibility.spec.js'],
+      testMatch: ['**/scorekeeper.spec.ts', '**/scoring.spec.ts', '**/scorekeeper-accessibility.spec.ts'],
       use: { ...devices['iPhone 15'] },
     },
     {
       name: 'android',
-      testMatch: ['**/scorekeeper.spec.js', '**/scoring.spec.js', '**/scorekeeper-accessibility.spec.js'],
+      testMatch: ['**/scorekeeper.spec.ts', '**/scoring.spec.ts', '**/scorekeeper-accessibility.spec.ts'],
       use: { ...devices['Pixel 7'] },
     },
 
@@ -45,12 +45,12 @@ module.exports = defineConfig({
     // Multi-page sync tests excluded — covered by desktop projects.
     {
       name: 'ipad',
-      testMatch: ['**/display-keyboard.spec.js', '**/quick.spec.js'],
+      testMatch: ['**/display-keyboard.spec.ts', '**/quick.spec.ts'],
       use: { ...devices['iPad Pro 11'] },
     },
     {
       name: 'android-tab',
-      testMatch: ['**/display-keyboard.spec.js', '**/quick.spec.js'],
+      testMatch: ['**/display-keyboard.spec.ts', '**/quick.spec.ts'],
       use: { ...devices['Galaxy Tab S9'] },
     },
 
@@ -59,7 +59,7 @@ module.exports = defineConfig({
     // Multi-page sync tests excluded — covered by desktop projects.
     {
       name: 'android-tv',
-      testMatch: ['**/display-keyboard.spec.js', '**/quick.spec.js'],
+      testMatch: ['**/display-keyboard.spec.ts', '**/quick.spec.ts'],
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1920, height: 1080 },

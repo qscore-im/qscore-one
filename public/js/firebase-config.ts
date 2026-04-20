@@ -8,7 +8,7 @@
  * DO NOT commit real credentials to a public repository.
  */
 
-window.FIREBASE_CONFIG = {
+(window as any).FIREBASE_CONFIG = {
   apiKey:            "YOUR_API_KEY",
   authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
   databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",

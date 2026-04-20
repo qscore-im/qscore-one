@@ -11,7 +11,7 @@
  *     cloudflareWorkerUrl: 'wss://my-worker.my-account.workers.dev/ws'
  *   };
  */
-window.APP_CONFIG = {
+(window as any).APP_CONFIG = {
   backend: 'cloudflare',
   cloudflareWorkerUrl: (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws'
 };
