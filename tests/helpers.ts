@@ -3,7 +3,7 @@
  * Shared helpers and constants for all Playwright spec files.
  */
 
-const { expect } = require('@playwright/test');
+import { expect, Page } from '@playwright/test';
 
 const SK = '/scorekeeper.html';
 const DI = '/display.html';
@@ -11,7 +11,7 @@ const QS = '/quickscores.html';
 const QD = '/quickdisplay.html';
 
 /** Build a complete fresh match state object for a given id. */
-function freshMatchState(id, overrides = {}) {
+function freshMatchState(id: string, overrides: Record<string, any> = {}) {
   const base = {
     id,
     code:         'testcd',
@@ -39,7 +39,7 @@ function freshMatchState(id, overrides = {}) {
 /**
  * Wait for the Socket.io backend to be ready on the scorekeeper list view.
  */
-async function waitForSKReady(page) {
+async function waitForSKReady(page: Page) {
   await page.waitForFunction(() => typeof window.backend !== 'undefined');
   await page.waitForSelector('#conn-dot.live', { timeout: 20000 });
 }
@@ -48,7 +48,7 @@ async function waitForSKReady(page) {
  * Wait for the display page to receive its first matches update from the backend.
  * The no-signal overlay disappears as soon as any data arrives.
  */
-async function waitForDisplayReady(page) {
+async function waitForDisplayReady(page: Page) {
   await page.waitForFunction(() => typeof window.backend !== 'undefined');
   await page.waitForSelector('#no-signal.hidden', { timeout: 20000 });
 }
@@ -57,7 +57,7 @@ async function waitForDisplayReady(page) {
  * Create a test match via the backend, navigate the scorekeeper to its scorer
  * view, and return the match id.
  */
-async function createAndOpenMatch(page) {
+async function createAndOpenMatch(page: Page) {
   await page.waitForFunction(
     () => typeof window.backend !== 'undefined' && typeof window.backend.createMatch === 'function'
   );
@@ -103,7 +103,7 @@ async function createAndOpenMatch(page) {
  * Reset the active match to a clean state (optionally with overrides) without
  * leaving the scorer view.
  */
-async function resetMatchState(page, matchId, overrides = {}) {
+async function resetMatchState(page: Page, matchId: string, overrides: Record<string, any> = {}) {
   // Dismiss any open overlay first
   if (await page.locator('#overlay.show').count() > 0) {
     const btnText = await page.locator('#ov-btn').textContent();
@@ -120,7 +120,7 @@ async function resetMatchState(page, matchId, overrides = {}) {
 
   const state = freshMatchState(matchId, overrides);
   await page.evaluate(
-    ([id, s]) => window.backend.replaceMatch(id, s),
+    ([id, s]: [string, any]) => window.backend.replaceMatch(id, s),
     [matchId, state]
   );
 
@@ -132,7 +132,7 @@ async function resetMatchState(page, matchId, overrides = {}) {
 /**
  * On the display page, use the ID lookup field to jump to a specific match.
  */
-async function openMatchOnDisplay(page, matchId) {
+async function openMatchOnDisplay(page: Page, matchId: string) {
   await page.fill('#id-input', matchId);
   await page.locator('.btn-go').dispatchEvent('click');
   await expect(page.locator('#view-score')).toHaveClass(/active/, { timeout: 5000 });
@@ -141,7 +141,7 @@ async function openMatchOnDisplay(page, matchId) {
 /**
  * Wait for the quickscores page to be ready: connected and match state received.
  */
-async function waitForQuickReady(page) {
+async function waitForQuickReady(page: Page) {
   await page.waitForFunction(() => typeof window.backend !== 'undefined');
   await page.waitForSelector('#conn-dot.live', { timeout: 20000 });
   await page.waitForSelector('#waiting.hidden', { timeout: 20000 });
@@ -150,11 +150,11 @@ async function waitForQuickReady(page) {
 /**
  * Read the short match code from the quickscores session-strip.
  */
-async function getQuickMatchId(page) {
+async function getQuickMatchId(page: Page) {
   return (await page.locator('#display-code').textContent()).trim();
 }
 
-module.exports = {
+export {
   SK,
   DI,
   QS,

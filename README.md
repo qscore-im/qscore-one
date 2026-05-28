@@ -2,7 +2,7 @@
 
 Real-time volleyball scoreboard. A scorekeeper uses their phone; a TV shows the live display.
 
-Works **locally with no internet** (Node.js + Socket.io) and can be **deployed to Firebase** with one command — the same HTML files auto-detect which backend to use.
+Works **locally with no internet** (Node.js + Socket.io) and can be **deployed to Firebase or Cloudflare** — the same HTML files auto-detect which backend to use.
 
 ---
 
@@ -15,7 +15,7 @@ npm install
 npm start
 ```
 
-Open the printed network URL on both devices (same Wi-Fi required):
+`npm start` compiles the TypeScript source and starts the server. Open the printed network URL on both devices (same Wi-Fi required):
 
 | Device | URL |
 |--------|-----|
@@ -29,10 +29,13 @@ Press F11 on the TV for full-screen.
 ## Development
 
 ```bash
-npm run dev    # auto-reloads server on file changes (Node --watch)
+npm run build    # compile TypeScript → JS
+npm run dev      # auto-reloads server on file changes (Node --watch)
 ```
 
-The server prints its local and network URLs on startup. Both HTML files are served as static files from `public/` — edit them and refresh the browser.
+Run `npm run build` once after cloning (or after editing any `.ts` file), then `npm run dev` to watch for server restarts. For continuous compilation while editing TypeScript, run `npx tsc --watch` in a separate terminal alongside `npm run dev`.
+
+The server prints its local and network URLs on startup. HTML files are served as static files from `public/` — edit them and refresh the browser.
 
 ---
 
@@ -44,7 +47,7 @@ The test suite uses [Playwright](https://playwright.dev/) and covers scoring log
 npm test
 ```
 
-Playwright starts the server automatically on port 3001 for the duration of the test run. Chromium is used by default.
+`npm test` compiles TypeScript then starts the server automatically on port 3000 for the duration of the test run.
 
 To run a specific test file or filter by name:
 
@@ -69,9 +72,14 @@ npx playwright install chromium
 
 ## Deploy to Firebase
 
-1. Fill in `public/js/firebase-config.js` with your Firebase project credentials
+1. Fill in `public/js/firebase-config.ts` with your Firebase project credentials
 2. Update `.firebaserc` with your project ID
 3. `npm run deploy`
+
+## Deploy to Cloudflare
+
+1. Configure `public/js/app-config.ts` with your Cloudflare Worker URL
+2. `npm run deploy:cloudflare`
 
 See `CLAUDE.md` for full architecture details and setup instructions.
 

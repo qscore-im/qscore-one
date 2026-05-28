@@ -36,13 +36,13 @@ app.use((err, _req, res, _next) => {
 });
 
 // In-memory matches store: { [id]: matchState }
-const matches = {};
+const matches: Record<string, any> = {};
 
 /**
  * Apply a flat slash-notation patch to a match object.
  * e.g. { 'teamA/score': 5 } sets matches[id].teamA.score = 5
  */
-function applyPatch(match, patch) {
+function applyPatch(match: Record<string, any>, patch: Record<string, any>) {
   for (const [key, value] of Object.entries(patch)) {
     const parts = key.split('/');
     if (parts.length === 1) {
@@ -100,8 +100,8 @@ io.on('connection', socket => {
 server.listen(PORT, () => {
   const ips = Object.values(os.networkInterfaces())
     .flat()
-    .filter(i => i.family === 'IPv4' && !i.internal)
-    .map(i => i.address);
+    .filter((i: any) => i.family === 'IPv4' && !i.internal)
+    .map((i: any) => i.address);
 
   console.log('\n🏐  Volleyball Scoreboard\n');
   console.log(`   Local:    http://localhost:${PORT}`);

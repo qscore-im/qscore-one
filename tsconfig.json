@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020", "DOM"],
+    "skipLibCheck": true,
+    "strict": false
+  },
+  "include": ["public/js/**/*.ts"],
+  "exclude": ["node_modules"]
+}

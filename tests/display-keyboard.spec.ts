@@ -3,18 +3,18 @@
 // Targeted at the android-tv project (remote control / no touch), but also
 // run on desktop browsers to keep keyboard accessibility verified everywhere.
 
-const { test, expect } = require('@playwright/test');
-const {
+import { test, expect, Page } from '@playwright/test';
+import {
   DI, QD, QS,
   waitForDisplayReady,
   waitForQuickReady,
   getQuickMatchId,
-} = require('./helpers');
+} from './helpers';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Inject a match via backend and wait for its card to appear. */
-async function injectAndWait(page) {
+async function injectAndWait(page: Page) {
   await page.waitForFunction(() => typeof window.backend !== 'undefined');
   const matchId = await page.evaluate(() => {
     const id = 'kbd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);

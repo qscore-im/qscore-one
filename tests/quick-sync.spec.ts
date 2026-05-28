@@ -5,8 +5,8 @@
 // equivalent sync coverage is already provided by display-sync.spec.js on
 // the chromium and webkit desktop projects.
 
-const { test, expect } = require('@playwright/test');
-const { QS, QD, waitForQuickReady, getQuickMatchId } = require('./helpers');
+import { test, expect } from '@playwright/test';
+import { QS, QD, waitForQuickReady, getQuickMatchId } from './helpers';
 
 test.describe('quickscores → quickdisplay sync', () => {
   test('score updates appear on the display', async ({ browser }) => {

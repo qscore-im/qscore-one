@@ -20,6 +20,9 @@
  *   backend.onDisconnect(fn)         — called when connection lost
  */
 
+declare const io: any;
+declare const firebase: any;
+
 (function () {
   'use strict';
 
@@ -56,7 +59,7 @@
     socket.on('disconnect', notifyDisconnect);
     socket.on('matches',    data => notifyMatches(data || {}));
 
-    window.backend = {
+    (window as any).backend = {
       mode: 'socketio',
       onMatches(fn)              { matchesListeners.push(fn); },
       onConnect(fn)              { connectListeners.push(fn); if (socket.connected) fn(); },
@@ -74,12 +77,12 @@
   function initFirebase() {
     console.log('[backend] Using Firebase Realtime Database');
 
-    if (!window.FIREBASE_CONFIG) {
+    if (!(window as any).FIREBASE_CONFIG) {
       console.error('[backend] window.FIREBASE_CONFIG not found. Did you fill in public/js/firebase-config.js?');
       return;
     }
 
-    firebase.initializeApp(window.FIREBASE_CONFIG);
+    firebase.initializeApp((window as any).FIREBASE_CONFIG);
     const db         = firebase.database();
     const matchesRef = db.ref('volleyball/matches');
 
@@ -91,7 +94,7 @@
       notifyMatches(snap.val() || {});
     });
 
-    window.backend = {
+    (window as any).backend = {
       mode: 'firebase',
       onMatches(fn)           { matchesListeners.push(fn); },
       onConnect(fn)           { connectListeners.push(fn); },
@@ -152,7 +155,7 @@
 
     connect();
 
-    window.backend = {
+    (window as any).backend = {
       mode: 'cloudflare',
       onMatches(fn)           { matchesListeners.push(fn); },
       onConnect(fn)           { connectListeners.push(fn); },
@@ -167,7 +170,7 @@
   }
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
-  const cfg = window.APP_CONFIG || {};
+  const cfg = (window as any).APP_CONFIG || {};
 
   // Local hostnames always use Socket.io regardless of app-config —
   // this ensures `npm run dev` and `npm test` work even when app-config.js

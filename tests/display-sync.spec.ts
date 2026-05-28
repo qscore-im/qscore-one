@@ -1,14 +1,14 @@
 // tests/display-sync.spec.js
 // Real-time sync tests: scorekeeper → display propagation.
 
-const { test, expect } = require('@playwright/test');
-const {
+import { test, expect } from '@playwright/test';
+import {
   SK, DI,
   freshMatchState,
   waitForSKReady, waitForDisplayReady,
   createAndOpenMatch,
   openMatchOnDisplay,
-} = require('./helpers');
+} from './helpers';
 
 // ── Real-time sync: scorekeeper → display ─────────────────────────────────────
 
@@ -113,7 +113,7 @@ test.describe('Real-time sync', () => {
     await openMatchOnDisplay(di, matchId);
 
     await sk.evaluate(
-      ([id, s]) => window.backend.replaceMatch(id, s),
+      ([id, s]: [string, any]) => window.backend.replaceMatch(id, s),
       [matchId, freshMatchState(matchId, { teamA: { score: 24, sets: 0 }, teamB: { score: 22, sets: 0 } })]
     );
     await expect(sk.locator('#score-a')).toHaveText('24');

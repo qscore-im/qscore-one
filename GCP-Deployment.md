@@ -91,16 +91,22 @@ gcloud artifacts repositories create scoreboard \
 
 ---
 
-## Step 5 — Configure app-config.js
+## Step 5 — Configure app-config.ts
 
-Edit `public/js/app-config.js` to force the Socket.io backend (bypassing
+Edit `public/js/app-config.ts` to force the Socket.io backend (bypassing
 hostname auto-detection):
 
-```js
+```ts
 window.APP_CONFIG = {
   backend: 'socketio',
   cloudflareWorkerUrl: ''
 };
+```
+
+Then recompile so the change is picked up by the browser:
+
+```bash
+npx tsc -p tsconfig.json
 ```
 
 This ensures clients served from the Cloud Run domain connect via Socket.io
@@ -113,7 +119,7 @@ rather than falling through to the Firebase auto-detection.
 Create `Dockerfile` in the project root:
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 

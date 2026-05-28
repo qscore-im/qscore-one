@@ -47,6 +47,12 @@ web_modules/
 # TypeScript cache
 *.tsbuildinfo
 
+# TypeScript compiled output
+server.js
+public/js/backend.js
+public/js/app-config.js
+public/js/firebase-config.js
+
 # Optional npm cache directory
 .npm
 
@@ -140,3 +146,4 @@ vite.config.ts.timestamp-*
 test-results/
 .vscode/
 .wrangler/
+.DS_Store
